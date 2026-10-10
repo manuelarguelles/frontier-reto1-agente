@@ -2,7 +2,7 @@
 // Sin LAB=1 las rutas /lab* dan 404 y NO se lee nada del disco.
 // Los secretos de private/desktop.env viven solo en el servidor: jamás se devuelven al navegador.
 import http from "node:http";
-import { mkdirSync, rmdirSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import { mkdirSync, rmdirSync, readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { redact } from "./agent.ts";
@@ -53,7 +53,12 @@ const defaults = (): LabDeps => ({
   readText: (p) => readFileSync(p, "utf8"),
   listDir: (p) => readdirSync(p),
   exists: existsSync,
-  mkdirLock: () => { try { mkdirSync(LOCK_DIR); return true; } catch { return false; } },
+  mkdirLock: () => {
+    try { mkdirSync(LOCK_DIR); return true; } catch { /* ocupado o huérfano */ }
+    // Candado huérfano (servidor reiniciado a mitad de una prueba): una tarea dura <5 min, así que >8 min sin tocar es obsoleto
+    try { if (Date.now() - statSync(LOCK_DIR).mtimeMs > 8 * 60_000) { rmdirSync(LOCK_DIR); mkdirSync(LOCK_DIR); return true; } } catch { /* */ }
+    return false;
+  },
   rmLock: () => { try { rmdirSync(LOCK_DIR); } catch { /* */ } },
   selfUrl: () => `http://127.0.0.1:${process.env.PORT ?? 8080}`,
   teamToken: () => process.env.TEAM_TOKEN ?? "",
