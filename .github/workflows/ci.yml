@@ -1,0 +1,21 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Tests unitarios y de API
+        run: node --test test/
+      - name: Build de la imagen Docker
+        run: docker build -t reto1 .
+      - name: Imagen arranca y responde /health con Bearer
+        run: |
+          docker run -d --name r1 -p 8080:8080 -e TEAM_TOKEN=ci reto1
+          sleep 3
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8080/health)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer ci' localhost:8080/health)" = 200
