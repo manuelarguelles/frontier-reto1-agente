@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agente Frontier - Visor en vivo</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --text: #e2e8f0;
+      --accent: #3b82f6;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+      padding: 1rem;
+    }
+    h1 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--accent); }
+    h2 { font-size: 1rem; margin: 0.5rem 0 0.25rem; color: var(--text); }
+    .container { display: grid; grid-template-columns: 1fr 300px; gap: 1rem; max-width: 1400px; margin: 0 auto; }
+    @media (max-width: 1024px) { .container { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    .main-view { display: flex; flex-direction: column; gap: 1rem; }
+    .screen-preview { background: #000; border-radius: 4px; overflow: hidden; width: 100%; max-width: 640px; margin: 0 auto; }
+    .screen-preview img { width: 100%; display: block; }
+    .status-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.875rem; }
+    .status-item { display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: var(--bg); border-radius: 4px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-active { background: var(--success); }
+    .dot-pending { background: var(--warning); }
+    .dot-error { background: var(--danger); }
+    .trace-list { display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; max-height: 600px; }
+    .trace-item { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; cursor: pointer; transition: border-color 0.2s; }
+    .trace-item:hover { border-color: var(--accent); }
+    .trace-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .trace-id { font-family: monospace; font-size: 0.8rem; color: var(--accent); }
+    .trace-state { font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 9999px; }
+    .state-running { background: #1e3a8a; color: #93c5fd; }
+    .state-done { background: #064e3b; color: #6ee7b7; }
+    .state-failed { background: #7f1d1d; color: #fca5a5; }
+    .trace-meta { font-size: 0.75rem; color: #94a3b8; }
+    .trace-steps { display: flex; flex-direction: column; gap: 0.5rem; }
+    .step { font-size: 0.75rem; padding: 0.5rem; background: var(--panel); border-radius: 4px; border-left: 3px solid var(--border); }
+    .step-current { border-left-color: var(--accent); }
+    .step-observacion { color: #cbd5e1; font-style: italic; }
+    .step-plan { color: var(--text); margin-top: 0.25rem; }
+    .step-accion { font-family: monospace; color: var(--accent); margin-top: 0.25rem; }
+    .step-cost { font-family: monospace; color: var(--warning); margin-top: 0.25rem; }
+    .step-time { font-family: monospace; color: #64748b; font-size: 0.7rem; }
+    .no-traces { text-align: center; color: #64748b; padding: 2rem; }
+    .loading { text-align: center; color: var(--accent); padding: 1rem; }
+    .error { background: #7f1d1d; color: #fca5a5; padding: 0.5rem; border-radius: 4px; }
+    .summary-box { background: var(--bg); padding: 0.75rem; border-radius: 4px; margin-top: 0.75rem; }
+    .summary-box h3 { font-size: 0.875rem; color: var(--text); margin-bottom: 0.25rem; }
+    .summary-text { font-size: 0.875rem; color: #cbd5e1; white-space: pre-wrap; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .value { font-family: monospace; color: var(--accent); }
+    @media (max-width: 640px) { .container { grid-template-columns: 1fr; } .screen-preview { max-width: 100%; } }
+  </style>
+</head>
+<body>
+  <h1>Agente Frontier — Visor en vivo</h1>
+  <div class="container">
+    <div class="main-view">
+      <div class="panel">
+        <h2>Estado actual</h2>
+        <div class="status-bar" id="statusBar">
+          <div class="status-item"><span class="status-dot dot-active"></span><span id="liveEnabled">Live view: ON</span></div>
+          <div class="status-item"><span class="status-dot dot-pending"></span><span id="taskCount">Tareas activas: 0</span></div>
+          <div class="status-item"><span class="status-dot dot-error"></span><span id="lastUpdate">Actualizado: —</span></div>
+        </div>
+        <div id="errorBox" class="error" style="display:none;"></div>
+      </div>
+
+      <div class="panel" id="activeTracePanel" style="display:none;">
+        <h2 id="activeTraceTitle">Tarea activa</h2>
+        <div class="grid-2">
+          <div>
+            <h2>Resumen</h2>
+            <div class="summary-box">
+              <h3>Estado</h3>
+              <div class="value" id="activeState">—</div>
+              <h3 style="margin-top:0.75rem">Coste</h3>
+              <div class="value" id="activeCost">—</div>
+            </div>
+          </div>
+          <div>
+            <h2>Tiempo</h2>
+            <div class="summary-box">
+              <h3>Inicio</h3>
+              <div class="value" id="activeStarted">—</div>
+              <h3 style="margin-top:0.75rem">Duración</h3>
+              <div class="value" id="activeDuration">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="trace-steps" id="activeTraceSteps"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Última captura</h2>
+        <div class="screen-preview">
+          <img id="screenImage" src="" alt="Captura del escritorio">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Lista de tareas</h2>
+      <div class="trace-list" id="traceList">
+        <div class="no-traces">No hay tareas activas</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "";
+    let sse = null;
+    let activeTraceId = null;
+
+    function formatTime(ms) {
+      if (ms < 1000) return ms.toFixed(0) + " ms";
+      if (ms < 60000) return (ms / 1000).toFixed(1) + " s";
+      return (ms / 60000).toFixed(1) + " min";
+    }
+
+    function formatCost(usd) {
+      return "$" + usd.toFixed(4);
+    }
+
+    function formatDate(ts) {
+      return new Date(ts).toLocaleTimeString();
+    }
+
+    function updateUI(data) {
+      const now = Date.now();
+      const list = document.getElementById("traceList");
+      const activePanel = document.getElementById("activeTracePanel");
+
+      // Actualizar cuenta
+      const activeCount = data.traces.filter(t => t.estado === "en_curso" || t.estado === "desconocido").length;
+      document.getElementById("taskCount").textContent = "Tareas activas: " + activeCount;
+      document.getElementById("lastUpdate").textContent = "Actualizado: " + new Date().toLocaleTimeString();
+
+      // Renderizar lista
+      if (data.traces.length === 0) {
+        list.innerHTML = '<div class="no-traces">No hay tareas activas</div>';
+        activePanel.style.display = "none";
+        activeTraceId = null;
+        document.getElementById("screenImage").src = "";
+        return;
+      }
+
+      list.innerHTML = "";
+      let activeFound = false;
+
+      for (const t of data.traces) {
+        const item = document.createElement("div");
+        item.className = "trace-item" + (activeTraceId === t.task_id ? " step-current" : "");
+        item.onclick = () => selectTrace(t.task_id);
+
+        const stateClass = t.estado === "terminada" ? "state-done" : (t.estado === "fallida" ? "state-failed" : "state-running");
+
+        let lastStep = "";
+        if (t.steps > 0 && t.stepsData) {
+          const last = t.stepsData.steps[t.stepsData.steps.length - 1];
+          lastStep = `<div class="step-observacion">Obs: ${escapeHtml(last.observacion || "")}</div>`;
+        }
+
+        item.innerHTML = `
+          <div class="trace-header">
+            <span class="trace-id">${t.task_id.slice(0, 8)}</span>
+            <span class="trace-state ${stateClass}">${t.estado}</span>
+          </div>
+          <div class="trace-meta">Inicio: ${formatDate(t.startedAt)} | Pasos: ${t.steps}</div>
+          ${lastStep}
+        `;
+        list.appendChild(item);
+
+        if (activeTraceId === t.task_id) {
+          activeFound = true;
+          renderActiveTrace(t, now);
+        }
+      }
+
+      if (!activeFound && activeTraceId && !data.traces.find(t => t.task_id === activeTraceId)) {
+        activeTraceId = null;
+        activePanel.style.display = "none";
+        document.getElementById("screenImage").src = "";
+      }
+    }
+
+    function selectTrace(taskId) {
+      activeTraceId = taskId;
+      fetchTrace(taskId);
+    }
+
+    function fetchTrace(taskId) {
+      fetch(`${API_BASE}/tasks/${taskId}/trace`)
+        .then(r => r.json())
+        .then(data => {
+          const list = document.getElementById("traceList");
+          for (const item of list.children) {
+            if (item.querySelector(`.trace-id`)?.textContent.includes(taskId.slice(0, 8))) {
+              item.classList.add("step-current");
+            } else {
+              item.classList.remove("step-current");
+            }
+          }
+          renderActiveTrace({ task_id: taskId, ...data }, Date.now());
+        })
+        .catch(err => {
+          console.error("Error fetching trace:", err);
+          document.getElementById("errorBox").textContent = "Error cargando traza: " + err.message;
+          document.getElementById("errorBox").style.display = "block";
+        });
+    }
+
+    function renderActiveTrace(t, now) {
+      const panel = document.getElementById("activeTracePanel");
+      const stepsDiv = document.getElementById("activeTraceSteps");
+
+      document.getElementById("activeTraceTitle").textContent = `Tarea: ${t.task_id.slice(0, 8)}`;
+      document.getElementById("activeState").textContent = t.estado;
+      document.getElementById("activeState").className = "value " + (t.estado === "terminada" ? "state-done" : (t.estado === "fallida" ? "state-failed" : "state-running"));
+
+      let totalCost = 0;
+      if (t.stepsData && t.stepsData.steps) {
+        totalCost = t.stepsData.steps[t.stepsData.steps.length - 1]?.costUsd || 0;
+      }
+      document.getElementById("activeCost").textContent = formatCost(totalCost);
+      document.getElementById("activeStarted").textContent = formatDate(t.startedAt);
+      document.getElementById("activeDuration").textContent = formatTime(now - t.startedAt);
+
+      if (t.stepsData && t.stepsData.steps && t.stepsData.steps.length > 0) {
+        const lastStep = t.stepsData.steps[t.stepsData.steps.length - 1];
+        if (lastStep.png) {
+          document.getElementById("screenImage").src = "data:image/png;base64," + lastStep.png;
+        }
+        stepsDiv.innerHTML = "";
+        for (const step of t.stepsData.steps) {
+          const div = document.createElement("div");
+          div.className = "step step-current";
+          div.innerHTML = `
+            <div><strong>Paso ${step.step}</strong></div>
+            <div class="step-observacion">Obs: ${escapeHtml(step.observacion || "")}</div>
+            <div class="step-plan">Plan: ${escapeHtml(step.plan || "")}</div>
+            <div class="step-accion">Acción: ${escapeHtml(JSON.stringify(step.accion))}</div>
+            <div class="step-cost">Coste: ${formatCost(step.costUsd)} | Tiempo: ${formatTime(step.timeMs || 0)}</div>
+          `;
+          stepsDiv.appendChild(div);
+        }
+      } else {
+        stepsDiv.innerHTML = '<div class="no-traces">Sin pasos registrados</div>';
+      }
+
+      panel.style.display = "block";
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function connectSSE() {
+      if (sse) sse.close();
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      sse = new EventSource(`${API_BASE}/live/stream`);
+
+      sse.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.type === "init" || data.type === "update") {
+            updateUI(data);
+          }
+        } catch (e) {
+          console.error("SSE parse error:", e);
+        }
+      };
+
+      sse.onerror = (err) => {
+        console.error("SSE error:", err);
+        document.getElementById("errorBox").textContent = "Error de conexión SSE";
+        document.getElementById("errorBox").style.display = "block";
+        setTimeout(() => connectSSE(), 2000);
+      };
+    }
+
+    // Inicializar
+    document.getElementById("errorBox").addEventListener("click", function() {
+      this.style.display = "none";
+    });
+
+    // Verificar si LIVE_VIEW está habilitado
+    fetch(`${API_BASE}/health`)
+      .then(r => {
+        if (!r.ok) throw new Error("Servidor no disponible");
+        return fetch(`${API_BASE}/live/tasks`);
+      })
+      .then(r => {
+        if (r.status === 404) {
+          document.getElementById("liveEnabled").textContent = "Live view: OFF (LIVE_VIEW != 1)";
+          document.getElementById("liveEnabled").style.color = "#94a3b8";
+          document.getElementById("traceList").innerHTML = '<div class="no-traces">Visor en vivo deshabilitado (LIVE_VIEW != 1)</div>';
+        } else {
+          document.getElementById("liveEnabled").textContent = "Live view: ON";
+          connectSSE();
+        }
+      })
+      .catch(err => {
+        document.getElementById("errorBox").textContent = "Error conectando al servidor: " + err.message;
+        document.getElementById("errorBox").style.display = "block";
+      });
+  </script>
+</body>
+</html>

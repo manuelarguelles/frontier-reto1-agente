@@ -1,9 +1,10 @@
 // API del agente: Bearer en todas las rutas, task_id <2 s, estado durable sin credenciales, watchdog monotónico.
 import http from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { runAgent, redact, type AgentResult } from "./agent.ts";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, readFileSync as fsReadFileSync } from "node:fs";
+import { runAgent, redact, type AgentResult, type AgentOpts } from "./agent.ts";
 import { RfbClient } from "./rfb.ts";
+import { createTrace, removeTrace, onStepHook, getTrace, listTraces } from "./trace.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const TEAM_TOKEN = process.env.TEAM_TOKEN ?? "";
@@ -104,9 +105,28 @@ function start(t: Task, tarea: string, url: string, password: string) {
   // watchdog independiente: cancela a 270 s; si el worker no cierra, fuerza terminal a 280 s
   const soft = setTimeout(() => ctl.abort(), DEADLINE_MS);
   const hard = setTimeout(() => finish(t, { estado: "fallida", resumen: "Tiempo máximo alcanzado; la tarea se detuvo sin confirmar el resultado." }), HARD_CLOSE_MS);
-  runAgent({ tarea, url, password, signal: ctl.signal, deadlineMs: deadline, log: (m) => log(`[${t.task_id.slice(0, 8)}] ${redact(m, [password])}`) })
-    .then((r) => finish(t, r))
-    .catch((e) => finish(t, { estado: "fallida", resumen: redact("Error interno: " + (e?.message ?? e), [password]) }))
+
+  // Crear traza si LIVE_VIEW=1
+  if (process.env.LIVE_VIEW === "1") {
+    createTrace(t.task_id);
+  }
+
+  const onStep = process.env.LIVE_VIEW === "1" ? onStepHook(t.task_id) : undefined;
+  runAgent({ tarea, url, password, signal: ctl.signal, deadlineMs: deadline, log: (m) => log(`[${t.task_id.slice(0, 8)}] ${redact(m, [password])}`), onStep })
+    .then((r) => {
+      // Eliminar traza al terminar
+      if (process.env.LIVE_VIEW === "1") {
+        removeTrace(t.task_id);
+      }
+      finish(t, r);
+    })
+    .catch((e) => {
+      // Eliminar traza al fallar
+      if (process.env.LIVE_VIEW === "1") {
+        removeTrace(t.task_id);
+      }
+      finish(t, { estado: "fallida", resumen: redact("Error interno: " + (e?.message ?? e), [password]) });
+    })
     .finally(() => { clearTimeout(soft); clearTimeout(hard); });
 }
 
@@ -138,6 +158,73 @@ const server = http.createServer(async (req, res) => {
       if (!t) return send(res, 404, { error: "tarea no encontrada" });
       return send(res, 200, { estado: t.estado, resumen: t.resumen });
     }
+
+    // Rutas de visor en vivo (solo con LIVE_VIEW=1)
+    if (process.env.LIVE_VIEW === "1") {
+      if (req.method === "GET" && url.pathname === "/live") {
+        // Servir HTML estático
+        try {
+          const html = fsReadFileSync("./public/live.html", "utf8");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Content-Length": Buffer.byteLength(html) });
+          res.end(html);
+          return;
+        } catch {
+          return send(res, 404, { error: "live.html no encontrado" });
+        }
+      }
+      if (req.method === "GET" && url.pathname === "/live/tasks") {
+        // Lista de tareas con trazas activas (mejorar: incluir estado real de tasks)
+        const traces = listTraces();
+        for (const t of traces) {
+          const task = tasks.get(t.task_id);
+          t.estado = task ? task.estado : "desconocido";
+        }
+        return send(res, 200, traces);
+      }
+      if (req.method === "GET" && url.pathname.startsWith("/tasks/") && url.pathname.endsWith("/trace")) {
+        const match = url.pathname.match(/^\/tasks\/([\w-]+)\/trace$/);
+        if (match) {
+          const trace = getTrace(match[1]);
+          if (!trace) return send(res, 404, { error: "traza no encontrada" });
+          return send(res, 200, { steps: trace.steps, startedAt: trace.startedAt });
+        }
+      }
+      if (req.method === "GET" && url.pathname === "/live/stream") {
+        // SSE: enviar actualizaciones de la traza activa (si hay una sola en curso)
+        const headers = {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        };
+        res.writeHead(200, headers);
+
+        // Enviar inicial
+        const initialTraces = listTraces();
+        for (const t of initialTraces) {
+          const task = tasks.get(t.task_id);
+          t.estado = task ? task.estado : "desconocido";
+        }
+        res.write(`data: ${JSON.stringify({ type: "init", traces: initialTraces })}\n\n`);
+
+        // Enviar actualizaciones cada 500 ms (simplificado: sin cleanup en cierre)
+        const interval = setInterval(() => {
+          if (res.writableEnded) { clearInterval(interval); return; }
+          const currentTraces = listTraces();
+          for (const t of currentTraces) {
+            const task = tasks.get(t.task_id);
+            t.estado = task ? task.estado : "desconocido";
+          }
+          res.write(`data: ${JSON.stringify({ type: "update", traces: currentTraces })}\n\n`);
+        }, 500);
+
+        req.on("close", () => {
+          clearInterval(interval);
+          res.end();
+        });
+        return;
+      }
+    }
+
     send(res, 404, { error: "no encontrado" });
   } catch (e: any) { send(res, 500, { error: "error interno" }); log("error: " + e?.message); }
 });

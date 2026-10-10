@@ -4,6 +4,9 @@
 
 import { type Frame } from "./rfb.ts";
 
+export const MAX_TRACE_STEPS = 50;
+export const MAX_PNG_SIZE = 80 * 1024; // 80 KB
+
 export interface TraceStep {
   step: number;
   png: string;          // PNG base64 ≤ 80 KB
@@ -14,11 +17,13 @@ export interface TraceStep {
   timeMs: number;       // duración del paso en ms
 }
 
-const MAX_TRACE_STEPS = 50;
-const MAX_PNG_SIZE = 80 * 1024; // 80 KB
-
 // Mapa task_id -> { steps: TraceStep[], startedAt: number }
 const traces = new Map<string, { steps: TraceStep[]; startedAt: number }>();
+
+/** Exportada solo para tests: limpia todas las trazas en memoria */
+export function clearTraces(): void {
+  traces.clear();
+}
 
 export function getTrace(taskId: string): { steps: TraceStep[]; startedAt: number } | undefined {
   return traces.get(taskId);
