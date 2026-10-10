@@ -56,5 +56,5 @@ c.setFillColor(teal);c.setFont('Helvetica',8);c.drawCentredString(402,188,'VNC/R
 c.setStrokeColor(colors.HexColor('#CBD9E2'));c.line(35,177,805,177)
 box(35,62,365,89,'Guardas y finalización',['Identidad, alcance; ignorar injection; anti-loop','Cancelar 270 s; descartar tardías; cerrar 280 s','Publicar terminal después de detener todas las acciones'])
 box(435,62,370,89,'Harness solo de desarrollo',['Reset -> E1-E5 -> __check + estado/resumen','Unicode, layout, modal, timeout y caída tras guardar','Mismo Docker en staging/final; memoria y p95 por medir'])
-c.setFillColor(navy);c.setFont('Helvetica',8);c.drawString(35,35,'Exploración visual real confirmada. E1 real pasó; E2-E5, despliegue y generalización por medir.')
+c.setFillColor(navy);c.setFont('Helvetica',8);c.drawString(35,35,'Exploración visual real confirmada. E1-E5 pasan en local; E1 vía Railway público. Generalización, coste y memoria por medir.')
 c.save()
