@@ -5,11 +5,11 @@
 import { type Frame } from "./rfb.ts";
 
 export const MAX_TRACE_STEPS = 50;
-export const MAX_PNG_SIZE = 80 * 1024; // 80 KB
+export const MAX_PNG_SIZE = 600 * 1024; // 600 KB de base64 (una captura 1280x800 real pesa ~100-250 KB)
 
 export interface TraceStep {
   step: number;
-  png: string;          // PNG base64 ≤ 80 KB
+  png: string;          // PNG base64 ≤ MAX_PNG_SIZE
   observacion?: string;
   plan?: string;
   accion: any;
@@ -35,14 +35,8 @@ export function addTraceStep(taskId: string, step: TraceStep): void {
   const trace = traces.get(taskId);
   if (!trace) return;
 
-  // Reducir tamaño PNG si excede límite (máximo 80 KB)
-  if (step.png.length > MAX_PNG_SIZE) {
-    // Reducir calidad: usar un recorte central o redimensionar (simple: truncar base64)
-    // En la práctica, toPng de ~1280x800 da ~3-5 MB sin compresión, ~150-250 KB con PNG
-    // Si excede 80 KB, recortar imagen (no ideal) o usar jpeg con calidad baja
-    // Para simplificar: truncar string base64 (pérdida total, último recurso)
-    step.png = step.png.substring(0, MAX_PNG_SIZE);
-  }
+  // Un PNG truncado se ve roto: si excede el límite, se descarta la captura (el visor muestra un aviso) en vez de cortarla.
+  if (step.png.length > MAX_PNG_SIZE) step.png = "";
 
   trace.steps.push(step);
   // Mantener solo los últimos MAX_TRACE_STEPS

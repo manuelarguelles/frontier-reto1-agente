@@ -63,10 +63,10 @@ test("addTraceStep does nothing when LIVE_VIEW is not 1", () => {
   assert.strictEqual(trace, undefined, "createTrace no debe crear traza sin LIVE_VIEW");
 });
 
-test("addTraceStep truncates PNG when exceeding 80KB limit", () => {
+test("addTraceStep descarta (no corta) un PNG que excede el límite y conserva uno normal", () => {
   process.env.LIVE_VIEW = "1";
   createTrace("test-789");
-  const largePng = "x".repeat(90 * 1024); // 90 KB
+  const largePng = "x".repeat(700 * 1024); // 700 KB > límite
   addTraceStep("test-789", {
     step: 1,
     png: largePng,
@@ -78,7 +78,7 @@ test("addTraceStep truncates PNG when exceeding 80KB limit", () => {
   });
   const trace = getTrace("test-789");
   assert.ok(trace);
-  assert.ok(trace.steps[0].png.length <= 80 * 1024);
+  assert.equal(trace.steps[0].png, "", "un PNG sobre el límite se descarta, nunca se trunca");
 });
 
 test("removeTrace deletes trace entry", () => {

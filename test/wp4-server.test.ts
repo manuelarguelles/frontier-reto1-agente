@@ -41,7 +41,7 @@ test("trace.ts exports required functions and constants", async () => {
   assert.ok(typeof trace.listTraces === "function");
   assert.ok(typeof trace.onStepHook === "function");
   assert.equal(trace.MAX_TRACE_STEPS, 50);
-  assert.equal(trace.MAX_PNG_SIZE, 80 * 1024);
+  assert.equal(trace.MAX_PNG_SIZE, 600 * 1024);
 });
 
 test("server.ts imports trace module", () => {
