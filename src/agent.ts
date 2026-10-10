@@ -35,7 +35,13 @@ Formato alternativo para varias acciones seguidas sin esperar nueva captura (má
 // zoom y verificador previo a done son opt-in: en E1-E5 el baseline sin ellos dio 5/5; con ellos E3 regresó (zoom inventado, verificador sin contexto de páginas previas).
 const ENABLE_ZOOM = process.env.ENABLE_ZOOM === "1";
 const ENABLE_VERIFIER = process.env.ENABLE_VERIFIER === "1";
-const SYSTEM = ENABLE_ZOOM ? SYSTEM_FULL : SYSTEM_FULL
+// WP5 (acciones en lote y espera adaptativa) es opt-in: con Luna en E1–E5 dio 4/5 (E3 respondió 46≠45) y sin ganancia de tiempo; el baseline sin ellos dio 5/5.
+const ENABLE_BATCH = process.env.ENABLE_BATCH === "1";
+const ADAPTIVE_SETTLE = process.env.ADAPTIVE_SETTLE === "1";
+const SYSTEM_BASE = ENABLE_BATCH ? SYSTEM_FULL : SYSTEM_FULL
+  .replace("enviando una o varias acciones por turno", "enviando una acción por turno")
+  .replace(/\nFormato alternativo para varias acciones[^\n]*\n[^\n]*\n?/, "\n");
+const SYSTEM = ENABLE_ZOOM ? SYSTEM_BASE : SYSTEM_BASE
   .replace("usa zoom para ampliar la zona y localizar coordenadas exactas.", "apunta al centro exacto del control.")
   .replace("|zoom|done|fail", "|done|fail")
   .replace(',"w":0,"h":0,"scale":2,"buscar":""', "")
@@ -182,7 +188,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
       try {
         reply = await session.call("actor", [sysMsg, ...messages], o.signal, o.deadlineMs);
         parsed = parseJson(reply);
-        acts = extractActions(parsed);
+        acts = ENABLE_BATCH ? extractActions(parsed) : extractActions(parsed).slice(0, 1);
         if (acts.length === 0) throw new Error("sin acciones en la respuesta");
       } catch (e: any) {
         o.log(`paso ${step}: modelo/parseo falló: ${e?.message}`);
@@ -294,7 +300,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
         if (!isLast) {
           // Between batch actions: adaptive settle; if a page-changing action caused
           // a frame change, abort the batch to avoid typing into the wrong dialog.
-          const isp = adaptiveSettleParams(a.tipo, a.tecla);
+          const isp = ADAPTIVE_SETTLE ? adaptiveSettleParams(a.tipo, a.tecla) : { minMs: 1000, maxMs: 3000 };
           const inter = await rfb.settle(isp.minMs, isp.maxMs);
           const isPageAct = ["click", "double_click", "right_click", "scroll"].includes(a.tipo) ||
             (a.tipo === "key" && isNavKey(a.tecla ?? ""));
@@ -306,7 +312,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
         }
       }
       // Final settle with adaptive params based on the last action in the batch
-      const fsp = adaptiveSettleParams(acts[acts.length - 1].tipo, acts[acts.length - 1].tecla);
+      const fsp = ADAPTIVE_SETTLE ? adaptiveSettleParams(acts[acts.length - 1].tipo, acts[acts.length - 1].tecla) : { minMs: 1000, maxMs: 3000 };
       cur = batchEarlyFrame ?? await rfb.settle(fsp.minMs, fsp.maxMs);
       } catch (e: any) {
         // Caída del socket a mitad de tarea: reconectar (máx. 2), observar y dejar que el modelo verifique antes de repetir un guardado incierto.
