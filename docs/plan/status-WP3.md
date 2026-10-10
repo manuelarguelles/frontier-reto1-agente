@@ -42,12 +42,23 @@ Nada pendiente. Todo lo especificado en el plan de WP3 está implementado y veri
 
 - `npm test` → 58/58 tests pasan
 - `git status` → working tree clean tras commits
-- `git log --oneline -10` → HEAD en commits de WP3
+- `git pull --rebase` → up to date
+- `git push origin main` → push exitoso
 
 ## Commits realizados
 
-1. wp3: handlers de errores y SIGTERM en server.ts
-2. wp3: soporte de DesktopSize y reconexión en rfb.ts
-3. wp3: límite de memoria y validación de scroll sin coordenadas
-4. wp3: corregir keysymFor para Unicode BMP directo
-5. wp3: actualizar tests para validar nueva lógica
+Commit: `a58cb09` - wp3: implement handlers, SIGTERM, DesktopSize, retry, validation fixes, tests
+
+Files modified:
+- `src/server.ts`: handlers de errores, SIGTERM, límite de memoria
+- `src/rfb.ts`: DesktopSize, reconexión, keysymFor Unicode BMP
+- `test/api.test.ts`: actualización de keysymFor test
+- `test/unit.test.ts`: actualización de keysymFor test
+- `test/validation.test.ts`: nuevo test para validateAction
+- `test/wp3-rfb.test.ts`: nuevo test para RfbError y keysymFor Unicode
+- `test/wp3-server.test.ts`: nuevo test para server.ts
+- `docs/plan/status-WP3.md`: status de WP3
+
+## Estado final
+
+WP3 completado. Todos los tests pasan y el código está pushado a origin/main.
