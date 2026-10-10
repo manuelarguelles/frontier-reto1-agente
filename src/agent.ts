@@ -129,7 +129,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
     rfb = await RfbClient.connect(o.url, o.password, 15000, 1);
     const messages: Msg[] = [];
     let prev: Frame = await rfb.settle(300, 2500);
-    let noProgress = 0, lastKey = "", doneAttempts = 0;
+    let noProgress = 0, lastKey = "", doneAttempts = 0, reconnects = 0;
     for (let step = 1; step <= MAX_STEPS; step++) {
       if (o.signal.aborted || left() < 15000) return fail("Tiempo agotado antes de completar la tarea; no se declaró éxito.");
       const png = toPng(prev).toString("base64");
@@ -201,6 +201,9 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
       }
 
       // ── Ejecutar acción RFB ───────────────────────────────────────────────
+      let cur: Frame;
+      try {
+      if (process.env.DEBUG_DROP_STEP === String(step) && reconnects === 0) rfb.dropForTest(); // gancho de prueba: simula caída del socket
       switch (act.tipo) {
         case "click": await rfb.click(act.x, act.y); break;
         case "double_click": await rfb.click(act.x, act.y, { double: true }); break;
@@ -238,7 +241,23 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
           break;
         }
       }
-      const cur = await rfb.settle(1000, 3000);
+      cur = await rfb.settle(1000, 3000);
+      } catch (e: any) {
+        // Caída del socket a mitad de tarea: reconectar (máx. 2), observar y dejar que el modelo verifique antes de repetir un guardado incierto.
+        if (!/cerrad|closed|websocket|socket/i.test(String(e?.message)) || reconnects >= 2 || left() < 20000) throw e;
+        reconnects++;
+        o.log(`conexión caída (${e?.message}); reconectando (${reconnects}/2)`);
+        try {
+          await rfb.disconnect(500).catch(() => {});
+          rfb = await RfbClient.connect(o.url, o.password, 15000, 1);
+          prev = await rfb.settle(300, 2500);
+        } catch (e2: any) {
+          return fail("Se perdió la conexión con el escritorio y no se pudo reconectar: " + (e2?.message ?? e2));
+        }
+        messages.push({ role: "user", content: "La conexión con el escritorio se cayó y se restableció. Tu última acción pudo no haberse aplicado: observa la captura actual y verifica el estado real antes de repetir cualquier guardado." });
+        noProgress = 0;
+        continue;
+      }
       const k = JSON.stringify([act.tipo, act.x, act.y, act.texto, act.tecla]);
       if (sameFrame(prev, cur)) { noProgress++; } else noProgress = 0;
       if (k === lastKey && noProgress >= 3) return fail("Acción repetida sin efecto visible; se detiene para no duplicar cambios.");

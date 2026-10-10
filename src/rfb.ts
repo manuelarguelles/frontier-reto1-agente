@@ -316,6 +316,9 @@ export class RfbClient {
     return true;
   }
 
+  /** Solo pruebas: cierra el socket sin limpiar, para simular una caída de red. */
+  dropForTest() { try { this.ws.close(); } catch { /* */ } }
+
   get isClosed() { return this.closed; }
 }
 

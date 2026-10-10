@@ -36,6 +36,8 @@ const CATALOG: Record<string, ModelDef> = {
   "anthropic/claude-sonnet-4.6":     { inputCostPer1k: 0.003,   outputCostPer1k: 0.015,  timeoutMs: 40_000 },
   "anthropic/claude-haiku-4.5":      { inputCostPer1k: 0.001,   outputCostPer1k: 0.005,  timeoutMs: 25_000 },
   "anthropic/claude-haiku-5.5":      { inputCostPer1k: 0.0001,  outputCostPer1k: 0.0005, timeoutMs: 25_000 },
+  "openai/gpt-6-luna":               { inputCostPer1k: 0.0001,  outputCostPer1k: 0.0005, timeoutMs: 30_000 },
+  "openai/gpt-6-luna-pro":           { inputCostPer1k: 0.0001,  outputCostPer1k: 0.0005, timeoutMs: 40_000 },
   "google/gemini-2.5-flash":         { inputCostPer1k: 0.0003,  outputCostPer1k: 0.0025, timeoutMs: 30_000 },
 };
 
@@ -43,6 +45,8 @@ const FALLBACK: Record<string, string> = {
   "anthropic/claude-sonnet-4.6":     "anthropic/claude-haiku-4.5",
   "anthropic/claude-haiku-4.5":      "anthropic/claude-sonnet-4.6",
   "anthropic/claude-haiku-5.5":      "anthropic/claude-sonnet-4.6",
+  "openai/gpt-6-luna":               "anthropic/claude-sonnet-4.6",
+  "openai/gpt-6-luna-pro":           "anthropic/claude-sonnet-4.6",
   "google/gemini-2.5-flash":         "anthropic/claude-haiku-4.5",
 };
 
