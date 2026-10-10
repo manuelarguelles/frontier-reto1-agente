@@ -1,0 +1,57 @@
+{
+  "observed_at": "2026-10-10 09:47 America/Lima",
+  "source": "https://frontier.lab10.ai/evento/reto",
+  "selection_deadline": "10:30",
+  "selected": null,
+  "common": {
+    "design_deadline": "12:00",
+    "design": [
+      "Documento de una página, PDF o enlace",
+      "Diagrama, imagen, PDF o enlace"
+    ],
+    "execution_deadline": "20:00",
+    "execution": [
+      "Repositorio público",
+      "URL pública del entrypoint",
+      "Video público de máximo 2 minutos"
+    ],
+    "authorization": "Authorization: Bearer <token del equipo>",
+    "health": "GET /health responde 200 cuando listo",
+    "availability": "Desde 20:00 hasta fin del demo day",
+    "hosting_literal": "Despliégalo donde quieras.",
+    "clarifications": "Sin aclaraciones publicadas en ambas pestañas al revisar."
+  },
+  "challenge_1": {
+    "title": "El agente que opera lo que no tiene API",
+    "goal": "Aprender a operar por pantalla sistemas desconocidos y ejecutar tareas en lenguaje natural.",
+    "restrictions": [
+      "No usar herramientas ni proveedores externos que hagan esto por ti.",
+      "Apps accedidas igual que la de pruebas."
+    ],
+    "post_tasks": "Recibe tarea en lenguaje natural y escritorio (URL y contraseña); devuelve task_id en menos de 2 segundos.",
+    "get_task": "GET /tasks/{task_id}: estado en_curso, terminada o fallida y resumen.",
+    "task_time_limit_seconds": 300,
+    "evaluation": "App no vista, escritorio limpio; formato de resumen y reglas completas en README del material."
+  },
+  "challenge_2": {
+    "title": "La caja negra",
+    "goal": "Descubrir comportamiento de servicio sin documentación y reproducirlo exactamente, incluidos errores.",
+    "restrictions": [
+      "No usar herramientas que hagan el trabajo por ti; scripts y fuzzers propios sí.",
+      "El reemplazo no puede llamar al original ni a otro reemplazo."
+    ],
+    "extra_deliverables": [
+      "Especificación del servicio",
+      "Log de experimentos"
+    ],
+    "requests": "URL base acepta los mismos requests del original, incluidas rutas inexistentes.",
+    "reset": "POST /__reset con token del equipo vuelve a estado inicial antes de cada test; con otro token o sin token responde como original.",
+    "details": "Formato de reemplazo, especificación y log en README del material."
+  },
+  "pending": [
+    "README y material asignado no visibles antes de elegir en las pestañas revisadas.",
+    "URL/credenciales del entorno de cada reto.",
+    "Confirmar función del servidor Railway anunciado y si añade restricciones al hosting."
+  ],
+  "user_update": "Manuel informa que staff mencionó Railway y servidor proporcionado; propone validar primero en Railway propio, luego mover al de staff."
+}

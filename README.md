@@ -4,7 +4,7 @@ Proyecto de Manuel Argüelles para Frontier, 10 de octubre de 2026. Modalidad re
 
 ## Estado
 
-Reto por elegir; briefs disponibles a las 10:10 (Lima/Bogotá). No hay implementación del reto todavía.
+Reto por elegir. Ambos briefs ya abiertos al revisar a las 09:47 (Lima/Bogotá); elección cierra 10:30. No hay implementación del reto todavía.
 
 ## Reglas del evento
 
@@ -36,3 +36,7 @@ Codex coordina la selección según la tarea. Tras dos intentos sin avance cambi
 ## Avance de kickoff
 
 [Análisis, índice por temas y decisiones](docs/kickoff-analysis.md), basado en el avance 00:00–32:32. Diseño individual sin implementar el reto; ejecución con repo público y entrypoint desplegado según contrato. Original e índice detallado permanecen en `private/transcripts/`, fuera de Git.
+
+## Retos habilitados
+
+[Comparación y plan portable de despliegue](docs/challenge-comparison.md), con [contratos estructurados](docs/challenge-contracts.json). Ambas series de pestañas revisadas; el README del material asignado sigue pendiente. Propuesta: validar en Railway propio y desplegar el mismo commit en el destino del organizador cuando se conozca.
