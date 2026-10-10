@@ -42,7 +42,7 @@ Actualización del usuario: staff mencionó Railway y un servidor asignado. El c
 Propuesta basada en la preferencia de Manuel, pendiente del material y del destino asignado:
 
 1. Durante diseño, definir despliegue; implementar y desplegar después del cierre de esa fase.
-2. Usar un servicio o proyecto de hackatón en la cuenta propia, separado del servicio de El Chambas. Hay una pestaña existente llamada hopeful-solace, pero no se pudo inspeccionar; no se confirmó su relación con El Chambas ni se alteró.
+2. Usar un servicio o proyecto de hackatón en la cuenta propia, separado del servicio de El Chambas. Posteriormente se confirmó acceso a El Chambas, proyecto b4ddc8e6-d595-44ed-89a7-9d289f5c9f56, con dos servicios online y US$4.28 de saldo de prueba. hopeful-solace corresponde a otro ID. No se alteró El Chambas.
 3. Empaquetar la solución con Dockerfile y configuración por entorno: PORT, token de equipo, credencial de modelo si hace falta y acceso al entorno. No fijar URLs propias en el código.
 4. Validar /health y el contrato completo en ese entorno propio, sin consumir corridas ocultas salvo decisión explícita.
 5. Desplegar el mismo commit o imagen en el destino del organizador cuando se conozca; configurar variables y permisos por separado. Validar otra vez antes de presentar la URL final.
