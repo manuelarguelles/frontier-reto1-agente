@@ -167,7 +167,7 @@ td.num{font-family:var(--mono);white-space:nowrap}
 <div class="alert" id="alert" role="alert"><div><b id="alertT">Aviso</b><span id="alertM"></span></div><button type="button" id="alertX" aria-label="Cerrar aviso">×</button></div>
 <div class="head">
   <span class="label">En vivo</span>
-  <div class="row"><div><h1>Tarea en curso</h1><p>Aquí ves lo que hace el agente, paso a paso, en cuanto empieza una tarea.</p></div>
+  <div class="row"><div><h1>Tarea en curso</h1><p>Visor en vivo: aquí ves lo que hace el agente, paso a paso, en cuanto empieza una tarea.</p></div>
   <span class="chip" id="state">Sin tarea activa</span></div>
 </div>
 <div class="mon">
@@ -269,21 +269,29 @@ function render(){
   if(!traces.length)L.append(ph("No hay tareas recientes","Las tareas aparecen aquí mientras se ejecutan."));
   for(const x of traces){const b=el("button","row2");b.type="button";b.setAttribute("aria-pressed",x.task_id===sel);
     const [l,c]=STATE[x.estado]||[x.estado,""];b.append(el("span","mono","Tarea "+x.task_id.slice(0,8)+" · "+x.steps+" pasos"),el("span","chip "+c,l));
-    b.onclick=()=>{sel=x.task_id;pinned=true;tick(true)};L.append(b)}
+    b.onclick=()=>{sel=x.task_id;pinned=true;refresh()};L.append(b)}
 }
-let timer=null;
-async function tick(){
-  clearTimeout(timer);
+async function refresh(){
   try{
-    traces=await get("/live/tasks");
     if(!sel||!traces.some((x)=>x.task_id===sel)||(!pinned&&traces.some((x)=>x.estado==="en_curso"))){
       const run=traces.find((x)=>x.estado==="en_curso")||traces[traces.length-1];sel=run?run.task_id:null}
     data=sel?await get("/tasks/"+sel+"/trace").catch(()=>data):null;
     $("#alert").classList.remove("show");
   }catch(e){showAlert(e.t||"Error",e.m||String(e))}
-  render();timer=setTimeout(tick,1000);
+  render();
 }
-tick();
+let timer=null,sse=null,sseOk=false;
+async function tick(){ // respaldo por sondeo si el flujo SSE no está disponible
+  clearTimeout(timer);
+  if(!sseOk){try{traces=await get("/live/tasks");await refresh()}catch(e){showAlert(e.t||"Error",e.m||String(e));render()}}
+  timer=setTimeout(tick,2000);
+}
+function connect(){
+  sse=new EventSource(withToken("/live/stream"));
+  sse.onmessage=(ev)=>{try{const d=JSON.parse(ev.data);if(d.traces){sseOk=true;traces=d.traces;refresh()}}catch(e){}};
+  sse.onerror=()=>{sseOk=false};
+}
+connect();tick();
 
 </script>
 </body>
