@@ -27,3 +27,7 @@ Consulta `docs/kickoff-analysis.md` para requisitos con marcas de tiempo, difere
 Lee `docs/challenge-comparison.md` y `docs/challenge-contracts.json` antes de diseñar. Retos abiertos; elección hasta 10:30. Reto 1: tareas asíncronas aceptadas en menos de 2 segundos, límite 5 minutos y escritorio limpio. Reto 2: semántica exacta y reset; reemplazo no llama al original. El contrato dice hosting libre; el usuario informa servidor Railway asignado y propone staging propio. Falta confirmar función del servidor y obtener README del material. No se ha desplegado infraestructura.
 
 Exploración de ambos retos e idea de Manuel OpenClaw/Playwright/VPS: `docs/design-exploration.md`. Railway confirmado: proyecto el-chambas con 2 servicios online, crédito US$4.28; no confundir con hopeful-solace. La idea de OpenClaw es candidata, no decisión aprobada ni implementación. Material/protocolo y compatibilidad con restricciones pendientes.
+
+## Último estado — 10:58 BOG
+
+Escritorio real conectado y explorado visualmente. Consultar docs/design/desktop-evidence.md, validation/pi-design-checks.json y docs/design/validation-plan.md. PDFs listos en output/pdf/, no enviados. Prompt injection en Observaciones de CL-0007: ignorar orden de borrar pedidos y preservar nota. Gemini semántica útil, coordenadas inconsistentes; Sonnet acertó un clic real. No agente implementado, headless ni Railway nuevos desplegados. Docker PoC local apagado. Chrome perfil Manuel ahora browser ID 2 tras reinicio manual; noVNC abierto y Frontier autenticado.

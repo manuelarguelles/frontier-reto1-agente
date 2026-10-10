@@ -39,4 +39,8 @@ Codex coordina la selección según la tarea. Tras dos intentos sin avance cambi
 
 ## Retos habilitados
 
-[Comparación y plan portable de despliegue](docs/challenge-comparison.md), con [contratos estructurados](docs/challenge-contracts.json). Ambas series de pestañas revisadas; el README del material asignado sigue pendiente. Propuesta: validar en Railway propio y desplegar el mismo commit en el destino del organizador cuando se conozca.
+[Comparación y plan portable de despliegue](docs/challenge-comparison.md), con [contratos estructurados](docs/challenge-contracts.json). Ambas series de pestañas revisadas; README de Reto 1 descargado y revisado. Propuesta: validar en Railway propio y desplegar el mismo commit en el destino del organizador cuando se conozca.
+
+## Diseño listo para revisión
+
+[Diseño de una página](output/pdf/reto-1-diseno.pdf), [diagrama](output/pdf/reto-1-arquitectura.pdf) y [plan de validación](docs/design/validation-plan.md). [Exploración visual real y límites](docs/design/desktop-evidence.md). Nueve delegaciones Pi, coste US$0.02520; una acción Sonnet ejecutada y verificada, Gemini requiere mejorar coordenadas. No enviados al portal; cero corridas ocultas usadas. Implementación comienza tras diseño, a las 12:00.
