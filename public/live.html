@@ -123,6 +123,9 @@
 
   <script>
     const API_BASE = "";
+    // El navegador no puede enviar Bearer al navegar: el visor local usa ?token= (solo válido con LIVE_VIEW=1 y solo en rutas /live y /trace)
+    const TOKEN = new URLSearchParams(location.search).get("token") || "";
+    const withToken = (p) => p + (p.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(TOKEN);
     let sse = null;
     let activeTraceId = null;
 
@@ -204,7 +207,7 @@
     }
 
     function fetchTrace(taskId) {
-      fetch(`${API_BASE}/tasks/${taskId}/trace`)
+      fetch(withToken(`${API_BASE}/tasks/${taskId}/trace`))
         .then(r => r.json())
         .then(data => {
           const list = document.getElementById("traceList");
@@ -273,7 +276,7 @@
     function connectSSE() {
       if (sse) sse.close();
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      sse = new EventSource(`${API_BASE}/live/stream`);
+      sse = new EventSource(withToken(`${API_BASE}/live/stream`));
 
       sse.onmessage = (ev) => {
         try {
@@ -300,10 +303,10 @@
     });
 
     // Verificar si LIVE_VIEW está habilitado
-    fetch(`${API_BASE}/health`)
+    fetch(withToken(`${API_BASE}/live/tasks`))
       .then(r => {
-        if (!r.ok) throw new Error("Servidor no disponible");
-        return fetch(`${API_BASE}/live/tasks`);
+        if (r.status === 401) throw new Error("Falta ?token= en la URL");
+        return r;
       })
       .then(r => {
         if (r.status === 404) {

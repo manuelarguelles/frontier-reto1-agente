@@ -81,7 +81,13 @@ const send = (res: http.ServerResponse, code: number, body: unknown) => {
 };
 const authed = (req: http.IncomingMessage) => {
   const h = req.headers.authorization ?? "";
-  const got = Buffer.from(h.startsWith("Bearer ") ? h.slice(7) : "");
+  let tok = h.startsWith("Bearer ") ? h.slice(7) : "";
+  // Visor local: el navegador no puede mandar Bearer; con LIVE_VIEW=1 se acepta ?token= SOLO en /live* y /tasks/{id}/trace
+  if (!tok && process.env.LIVE_VIEW === "1") {
+    const u = new URL(req.url ?? "/", "http://x");
+    if (u.pathname === "/live" || u.pathname.startsWith("/live/") || /^\/tasks\/[\w-]+\/trace$/.test(u.pathname)) tok = u.searchParams.get("token") ?? "";
+  }
+  const got = Buffer.from(tok);
   const want = Buffer.from(TEAM_TOKEN);
   return got.length === want.length && timingSafeEqual(got, want);
 };
