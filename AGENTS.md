@@ -17,3 +17,7 @@ OpenRouter está configurado y verificado por Frontier. La key vive en el Llaver
 Hora Lima/Bogotá: elegir reto entre 10:10 y 10:30; diseño de una página y diagrama hasta 12:00; incidente 15:30; ejecución hasta 20:00; debrief 20:00–21:00; demo 21:15–22:15. Tres evaluaciones ocultas durante el día y una corrida final adicional tras 20:00. Probar localmente antes de gastar evaluaciones. Reto 2 requiere especificación con evidencia del log.
 
 Pi ya pasó pruebas básicas de lectura, edición, extracción y visión. No hay implementación del reto todavía. No elegir un reto ni enviar entregas sin autorización del usuario.
+
+## Evidencia del kickoff
+
+Consulta `docs/kickoff-analysis.md` para requisitos con marcas de tiempo, diferencias con el portal y decisiones D01–D08. El diseño no incluye implementar el reto; el repo de ejecución debe ser público y el entrypoint cumplir el contrato. Original e índice completo en `private/transcripts/`, ignorados por Git. No incorporar esa carpeta a una publicación. Las cantidades de ejemplos/casos y los horarios aproximados de la charla requieren confirmar el brief y calendario vigente.

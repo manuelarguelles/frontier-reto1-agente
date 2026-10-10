@@ -1,0 +1,27 @@
+{
+  "reviewer": "pi / deepseek/deepseek-v3.2",
+  "source": "docs/kickoff-analysis.md",
+  "raw_review": "artifacts/pi-checks/kickoff-review.txt",
+  "resolution": [
+    {
+      "claim": "D02 aparece como obligación literal",
+      "assessment": "Ya estaba marcada como propuesta arquitectónica; se refuerza clasificación conjunta D02–D04."
+    },
+    {
+      "claim": "D01 y D06 mezclan diseño e implementación",
+      "assessment": "Se explicita que casos se diseñan primero y se ejecutan después de la fase de diseño."
+    },
+    {
+      "claim": "Los equipos elegidos contradicen que sean opcionales",
+      "assessment": "No hay contradicción: participar solo es opcional y, si hay equipo, los integrantes se eligen. Sin cambio."
+    },
+    {
+      "claim": "Faltan criterios de diseño, formatos y presupuesto",
+      "assessment": "Ya hay referencias en análisis y README; se agrega lista explícita de criterios de rúbrica."
+    },
+    {
+      "claim": "Faltan detalles de contrato y mecanismo de cambio",
+      "assessment": "Pendientes del brief; se enumeran preguntas sin inventar respuestas."
+    }
+  ]
+}

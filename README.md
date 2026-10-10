@@ -32,3 +32,7 @@ Pi 1.1.0 instalado; OpenRouter verificado por Frontier. La credencial vive en el
 | Claude Sonnet 4.6 | Bloqueos difíciles |
 
 Codex coordina la selección según la tarea. Tras dos intentos sin avance cambia de modelo, y revisa los resultados y consumo. El modelo del agente entregado se elegirá con pruebas locales cuando salga el brief.
+
+## Avance de kickoff
+
+[Análisis, índice por temas y decisiones](docs/kickoff-analysis.md), basado en el avance 00:00–32:32. Diseño individual sin implementar el reto; ejecución con repo público y entrypoint desplegado según contrato. Original e índice detallado permanecen en `private/transcripts/`, fuera de Git.
