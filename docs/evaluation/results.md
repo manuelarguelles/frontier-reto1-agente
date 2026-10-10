@@ -37,7 +37,7 @@ Paso típico 6–7 s; 10–17 pasos por tarea.
 ## Lecciones
 
 - **Bug de la suite (`c.paso` vs `c.pass`)**: la primera corrida marcó 0/5 con `__check` en ✗ aunque las respuestas eran correctas; era un error de campo en la suite, no del agente. Corregido y re-medido.
-- **IDs de modelo inexistentes**: se detectaron antes de producción al medir cada modelo del catálogo.
+- **IDs de modelo inexistentes**: el catálogo por defecto de uno de los paquetes delegados usaba `claude-haiku-3.5` y `gemini-flash-1.5`, que no existen en OpenRouter; se detectó revisando la lista real de modelos de la API (no por las pruebas, que usaban mocks) y se corrigió antes de desplegar. Lección: validar los IDs contra la API real.
 - **Tests dependientes de variables de entorno**: dieron resultados distintos según el entorno; se aislaron de él.
 - **Cap de tokens en modelos con razonamiento**: 700 tokens truncaban el JSON (E3 en Haiku); se subió el tope a 1400 y se escala de modelo si la salida es ilegible.
 - **Medir antes de añadir**: zoom y verificador parecían mejoras y regresaron E3; la suite lo detectó y quedaron opt-in.
