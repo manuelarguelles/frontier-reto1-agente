@@ -164,3 +164,10 @@ test("cropToScreen redondea a entero", () => {
   assert.equal(sc.x, 103);
   assert.equal(sc.y, 104);
 });
+
+import { normalizeResumen } from "../src/agent.ts";
+test("normalizeResumen deja 'respuesta: <valor>' en línea propia y en minúscula", () => {
+  assert.equal(normalizeResumen("Sumé 12+13=45. Respuesta: 45"), "Sumé 12+13=45.\nrespuesta: 45");
+  assert.equal(normalizeResumen("texto\nrespuesta: 45; 7"), "texto\nrespuesta: 45; 7");
+  assert.equal(normalizeResumen("Hice X sin pregunta"), "Hice X sin pregunta");
+});

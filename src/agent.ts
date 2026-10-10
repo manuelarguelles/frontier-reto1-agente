@@ -98,6 +98,15 @@ export function validateAction(a: any, w: number, h: number): string | null {
   return null;
 }
 
+/** Garantiza el formato del contrato: una línea propia "respuesta: <valor>" (minúscula, valor al inicio). Sin línea de respuesta, no inventa una. */
+export function normalizeResumen(r: string): string {
+  const m = r.match(/(?:^|[\s.;])[Rr]espuesta:\s*([^\n]+?)\s*$/m);
+  if (!m) return r;
+  const valor = m[1].trim().replace(/\.$/, "");
+  const sin = r.replace(m[0], "").trim();
+  return (sin ? sin + "\n" : "") + "respuesta: " + valor;
+}
+
 export function redact(s: string, secrets: string[]): string {
   let out = s;
   for (const x of secrets) if (x && x.length >= 3) out = out.split(x).join("[oculto]");
@@ -143,7 +152,9 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
       } catch (e: any) {
         o.log(`paso ${step}: modelo/parseo falló: ${e?.message}`);
         messages.pop();
-        if (++noProgress >= 4) return fail("El modelo no produjo acciones válidas; se detiene sin cambios confirmados.");
+        ++noProgress;
+        if (noProgress >= 2 && process.env.ESCALATE_ON_FAIL !== "0" && session.escalate("actor")) noProgress = 0; // JSON truncado/ilegible: un modelo más fuerte retoma
+        if (noProgress >= 4) return fail("El modelo no produjo acciones válidas; se detiene sin cambios confirmados.");
         await sleep(500);
         continue;
       }
@@ -186,7 +197,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
 
       if (act.tipo === "done" || act.tipo === "fail") {
         const estado = act.tipo === "done" ? "terminada" : "fallida";
-        return { estado, resumen: redact(String(act.resumen).slice(0, 1500), secrets) };
+        return { estado, resumen: redact(normalizeResumen(String(act.resumen)).slice(-1500), secrets) };
       }
 
       // ── Ejecutar acción RFB ───────────────────────────────────────────────

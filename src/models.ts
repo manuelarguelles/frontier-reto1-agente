@@ -85,7 +85,7 @@ export function makeSession(
       throw new Error(`coste de tarea superado (${tracker.totalCostUsd.toFixed(4)} >= ${TASK_COST_CAP_USD} USD)`);
     }
 
-    const { maxTokens = 700, temperature = 0 } = opts;
+    const { maxTokens = 1400, temperature = 0 } = opts;
     const model = getModel(role);
     const def = CATALOG[model];
     const left = () => deadlineMs - performance.now();
