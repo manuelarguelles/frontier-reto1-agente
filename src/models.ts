@@ -32,22 +32,20 @@ interface ModelDef {
 
 const CATALOG: Record<string, ModelDef> = {
   "anthropic/claude-sonnet-4.6":     { inputCostPer1k: 0.003,   outputCostPer1k: 0.015,  timeoutMs: 40_000 },
-  "anthropic/claude-haiku-3.5":      { inputCostPer1k: 0.0008,  outputCostPer1k: 0.004,  timeoutMs: 25_000 },
-  "google/gemini-flash-1.5":         { inputCostPer1k: 0.00015, outputCostPer1k: 0.0006, timeoutMs: 30_000 },
-  "google/gemini-2.5-flash-preview": { inputCostPer1k: 0.00015, outputCostPer1k: 0.0006, timeoutMs: 30_000 },
+  "anthropic/claude-haiku-4.5":      { inputCostPer1k: 0.001,   outputCostPer1k: 0.005,  timeoutMs: 25_000 },
+  "google/gemini-2.5-flash":         { inputCostPer1k: 0.0003,  outputCostPer1k: 0.0025, timeoutMs: 30_000 },
 };
 
 const FALLBACK: Record<string, string> = {
-  "anthropic/claude-sonnet-4.6":     "anthropic/claude-haiku-3.5",
-  "anthropic/claude-haiku-3.5":      "anthropic/claude-sonnet-4.6",
-  "google/gemini-flash-1.5":         "anthropic/claude-haiku-3.5",
-  "google/gemini-2.5-flash-preview": "anthropic/claude-haiku-3.5",
+  "anthropic/claude-sonnet-4.6":     "anthropic/claude-haiku-4.5",
+  "anthropic/claude-haiku-4.5":      "anthropic/claude-sonnet-4.6",
+  "google/gemini-2.5-flash":         "anthropic/claude-haiku-4.5",
 };
 
 function defaultModel(role: ModelRole): string {
   if (role === "actor")       return process.env.AGENT_MODEL     ?? "anthropic/claude-sonnet-4.6";
-  if (role === "localizador") return process.env.LOCALIZER_MODEL ?? "google/gemini-flash-1.5";
-  /* verificador */           return process.env.VERIFIER_MODEL  ?? "anthropic/claude-haiku-3.5";
+  if (role === "localizador") return process.env.LOCALIZER_MODEL ?? "google/gemini-2.5-flash";
+  /* verificador */           return process.env.VERIFIER_MODEL  ?? "anthropic/claude-haiku-4.5";
 }
 
 /** USD cap per task; when exceeded the next call throws immediately. */

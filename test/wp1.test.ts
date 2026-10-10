@@ -1,5 +1,6 @@
 // WP1: tests for src/models.ts and new agent.ts features (zoom, cropToScreen).
 import { test } from "node:test";
+process.env.OPENROUTER_API_KEY ??= "test-key";
 import assert from "node:assert/strict";
 import { makeSession, TASK_COST_CAP_USD } from "../src/models.ts";
 import { validateAction, cropToScreen } from "../src/agent.ts";
