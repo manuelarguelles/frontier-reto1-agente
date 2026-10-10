@@ -27,11 +27,6 @@ Implementación de tests unitarios y de integración para WP2 (harness y evaluac
 | `src/rfb.ts` | Mejoras: retry en conexión, soporte de DesktopSize, validación de keysym para Unicode BMP/plano multilenguaje |
 | `src/server.ts` | Mejoras: manejo de uncaughtException/unhandledRejection, SIGTERM/SIGINT graceful shutdown, límite de memoria |
 
-### Archivos eliminados (tests no aplicables)
-
-- `test/models.test.ts` — referencia a `src/models.ts` que no existe en el código actual
-- `test/wp1.test.ts` — tests de WP1 que no son parte de este paquete
-
 ## Resultados de tests
 
 ```
@@ -76,7 +71,10 @@ Implementación de tests unitarios y de integración para WP2 (harness y evaluac
 
 ```bash
 npm test                          # 58 tests, 0 fail
-git add test/validation.test.ts test/wp3-server.test.ts test/wp3-rfb.test.ts test/api.test.ts test/unit.test.ts src/rfb.ts src/server.ts
+git add test/validation.test.ts test/wp3-server.test.ts test/wp3-rfb.test.ts test/api.test.ts test/unit.test.ts src/rfb.ts src/server.ts docs/plan/status-WP2.md
+git commit -m "WP2: tests and harness validation"
+git pull --rebase origin main
+git push origin main
 ```
 
 ## Archivos modificados
@@ -88,3 +86,4 @@ git add test/validation.test.ts test/wp3-server.test.ts test/wp3-rfb.test.ts tes
 - `test/unit.test.ts` (modificado: consolidated tests)
 - `src/rfb.ts` (modificado: retry, DesktopSize, keysymFor)
 - `src/server.ts` (modificado: error handlers, graceful shutdown)
+- `docs/plan/status-WP2.md` (nuevo: status report)
