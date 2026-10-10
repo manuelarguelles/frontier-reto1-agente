@@ -2,7 +2,7 @@
 
 Lee `README.md` y `validation/pi-checks.json` al retomar. La memoria completa de esta sesión está en `/Users/macdenix/.codex/memories/frontier-hackathon-2026.md`.
 
-Manuel participa remoto el 10 de octubre de 2026 y ya está unido al WhatsApp. Quiere trabajar desde Codex; Codex puede manejar pi por terminal y revisar el portal en un navegador visible. Ambos briefs estaban abiertos a las 09:47 y el reto seguía sin elegir: comprobar el estado actual.
+Manuel participa remoto el 10 de octubre de 2026 y ya está unido al WhatsApp. Quiere trabajar desde Codex; Codex puede manejar pi por terminal y revisar el portal en un navegador visible. Reto 1 elegido y confirmado a las 10:23 por autorización explícita de Manuel. Lee docs/challenge-1-selected.md y private/challenge-1/README.md antes de diseñar.
 
 ## Modelos y método
 

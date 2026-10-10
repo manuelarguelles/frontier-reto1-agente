@@ -4,7 +4,7 @@ Proyecto de Manuel Argüelles para Frontier, 10 de octubre de 2026. Modalidad re
 
 ## Estado
 
-Reto por elegir. Ambos briefs ya abiertos al revisar a las 09:47 (Lima/Bogotá); elección cierra 10:30. No hay implementación del reto todavía.
+Reto 1 elegido y confirmado a las 10:23. Material disponible en private/challenge-1/. Entorno SIGECOM 1280×800, solo VNC/RFB. Ver docs/challenge-1-selected.md. No hay implementación del agente todavía.
 
 ## Reglas del evento
 
