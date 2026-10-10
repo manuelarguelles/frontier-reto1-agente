@@ -7,7 +7,8 @@ on:
 concurrency: { group: deploy, cancel-in-progress: false }
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # DEPLOY_FREEZE=1 (variable del repo) congela el CD automático, p. ej. durante una corrida de evaluación; el despliegue manual (workflow_dispatch) siempre pasa
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && vars.DEPLOY_FREEZE != '1')
     runs-on: ubuntu-latest
     env:
       RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
