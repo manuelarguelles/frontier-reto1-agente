@@ -48,7 +48,7 @@ async function callModel(messages: Msg[], signal: AbortSignal, timeoutMs: number
   } finally { clearTimeout(t); signal.removeEventListener("abort", onAbort); }
 }
 
-function parseJson(s: string): any {
+export function parseJson(s: string): any {
   const a = s.indexOf("{"), b = s.lastIndexOf("}");
   if (a < 0 || b < a) throw new Error("sin JSON");
   return JSON.parse(s.slice(a, b + 1));
@@ -58,12 +58,35 @@ const TIPOS = new Set(["click", "double_click", "right_click", "replace_text", "
 
 export function validateAction(a: any, w: number, h: number): string | null {
   if (!a || typeof a !== "object" || !TIPOS.has(a.tipo)) return "tipo de acción inválido";
-  if (["click", "double_click", "right_click", "scroll"].includes(a.tipo)) {
+  // scroll sin x/y es válido (se usa valor por defecto en ejecución)
+  if (a.tipo === "scroll") {
+    if (a.x !== undefined && (!Number.isFinite(a.x) || a.x < 0 || a.x >= w)) return "coordenada x fuera de pantalla";
+    if (a.y !== undefined && (!Number.isFinite(a.y) || a.y < 0 || a.y >= h)) return "coordenada y fuera de pantalla";
+    return null;
+  }
+  if (["click", "double_click", "right_click"].includes(a.tipo)) {
     if (!Number.isFinite(a.x) || !Number.isFinite(a.y) || a.x < 0 || a.y < 0 || a.x >= w || a.y >= h) return "coordenadas fuera de pantalla";
   }
-  if ((a.tipo === "type" || a.tipo === "replace_text") && typeof a.texto !== "string") return "falta texto";
-  if (a.tipo === "key" && typeof a.tecla !== "string") return "falta tecla";
-  if ((a.tipo === "done" || a.tipo === "fail") && typeof a.resumen !== "string") return "falta resumen";
+  if (a.tipo === "type") {
+    if (a.texto === undefined) return "falta texto";
+    if (typeof a.texto !== "string") return "texto inválido";
+  }
+  if (a.tipo === "replace_text") {
+    if (a.texto === undefined) return "falta texto";
+    if (typeof a.texto !== "string") return "texto inválido";
+  }
+  if (a.tipo === "key") {
+    if (a.tecla === undefined) return "falta tecla";
+    if (typeof a.tecla !== "string") return "tecla inválida";
+  }
+  if (a.tipo === "done") {
+    if (a.resumen === undefined) return "falta resumen";
+    if (typeof a.resumen !== "string") return "resumen inválido";
+  }
+  if (a.tipo === "fail") {
+    if (a.resumen === undefined) return "falta resumen";
+    if (typeof a.resumen !== "string") return "resumen inválido";
+  }
   return null;
 }
 
@@ -83,7 +106,8 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
   let rfb: RfbClient | null = null;
   const fail = (m: string): AgentResult => ({ estado: "fallida", resumen: redact(m, secrets) });
   try {
-    rfb = await RfbClient.connect(o.url, o.password, 15000);
+    // retry una vez si el socket cae antes de la primera acción (nunca tras guardado incierto)
+    rfb = await RfbClient.connect(o.url, o.password, 15000, 1);
     const messages: Msg[] = [];
     let prev: Frame = await rfb.settle(300, 2500);
     let noProgress = 0, lastKey = "";
