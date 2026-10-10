@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laboratorio del agente</title>
+<script>(function(){var t=null;try{t=localStorage.getItem("theme")}catch(e){}if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t})()</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0a;--surface:#141414;--hover:#1c1c1c;--line:#262626;--line-strong:#666;
+  --fg:#fafafa;--muted:#a3a3a3;--lav:#a9a0ec;--lav-deep:#1f1b3a;--yellow:#f6f072;--yellow-deep:#26240a;
+  --success:#3ecf8e;--warning:#ff9f43;--danger:#ff5a5f;--danger-deep:#2a0f10;--dots:#1f1f1f;
+  --on-lav:#0a0a0a;--glow:0 0 0 1px var(--lav),0 0 32px rgba(169,160,236,.35);--shadow:none;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#fafafa;--surface:#fff;--hover:#f2f2f2;--line:#e5e5e5;--line-strong:#8a8a8a;
+  --fg:#0a0a0a;--muted:#525252;--lav:#6a5bd1;--lav-deep:#eeebfc;--yellow:#f6f072;--yellow-deep:#fbf8c9;
+  --success:#0b7a4a;--warning:#9a4d00;--danger:#c4262b;--danger-deep:#fdecec;--dots:#e9e9e9;
+  --on-lav:#fff;--glow:0 0 0 1px var(--lav),0 0 20px rgba(106,91,209,.22);color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font:15px/1.55 var(--sans);background:var(--bg) radial-gradient(var(--dots) 1px,transparent 1px) 0 0/20px 20px;color:var(--fg);min-height:100vh}
+button,input{font:inherit;color:inherit}
+a{color:var(--lav)}
+:focus-visible{outline:1px solid var(--lav);outline-offset:2px;box-shadow:var(--glow)}
+.mono,.label{font-family:var(--mono)}
+.label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* estructura */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh;transition:grid-template-columns .2s}
+.app.collapsed{grid-template-columns:64px 1fr}
+.side{background:var(--surface);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;z-index:30;overflow:hidden}
+.brand{display:flex;align-items:center;gap:10px;height:56px;padding:0 18px;border-bottom:1px solid var(--line);white-space:nowrap}
+.brand .mark{width:20px;height:20px;border:1px solid var(--lav);background:var(--lav-deep);flex:none;position:relative}
+.brand .mark::after{content:"";position:absolute;inset:5px;background:var(--lav)}
+.brand b{font:600 13px var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.nav{padding:14px 10px;display:flex;flex-direction:column;gap:2px;flex:1}
+.nav .label{padding:6px 10px 8px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px;color:var(--muted);text-decoration:none;border:1px solid transparent;white-space:nowrap;min-height:44px}
+.nav a:hover{background:var(--hover);color:var(--fg)}
+.nav a[aria-current="page"]{background:var(--lav-deep);border-color:var(--lav);color:var(--fg)}
+.nav .ico{width:20px;text-align:center;flex:none;font-family:var(--mono);color:var(--lav)}
+.collapsed .nav .txt,.collapsed .brand b,.collapsed .nav .label{display:none}
+.side-foot{padding:12px 18px;border-top:1px solid var(--line);font:12px var(--mono);color:var(--muted);white-space:nowrap}
+.collapsed .side-foot{display:none}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{height:56px;display:flex;align-items:center;gap:12px;padding:0 24px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.top .crumb{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:40px;height:40px;display:grid;place-items:center;background:transparent;border:1px solid var(--line);cursor:pointer;font-size:17px;color:var(--fg)}
+.iconbtn:hover{background:var(--hover);border-color:var(--line-strong)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--line);font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.chip b{color:var(--fg);font-weight:500;letter-spacing:.02em;text-transform:none}
+.chip.lav{border-color:var(--lav);color:var(--lav);background:var(--lav-deep)}
+.chip.ok{border-color:var(--success);color:var(--success)}
+.chip.warn{border-color:var(--warning);color:var(--warning)}
+.chip.bad{border-color:var(--danger);color:var(--danger);background:var(--danger-deep)}
+.chip.yel{border-color:var(--yellow);color:var(--fg);background:var(--yellow-deep)}
+.page{padding:32px 24px 64px;width:100%;max-width:1280px;margin:0 auto}
+.head{margin-bottom:24px}
+.head h1{font:600 30px/1.2 var(--sans);letter-spacing:-.02em;margin:8px 0 6px}
+.head p{color:var(--muted);max-width:62ch}
+.head .row{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--line)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);min-height:48px;flex-wrap:wrap}
+.card-b{padding:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border:1px solid var(--line-strong);background:transparent;cursor:pointer;font:500 13px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--fg)}
+.btn:hover:not(:disabled){border-color:var(--lav);background:var(--hover)}
+.btn.primary{background:var(--lav);border-color:var(--lav);color:var(--on-lav)}
+.btn.primary:hover:not(:disabled){background:var(--lav);filter:brightness(1.1)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.alert{display:none;margin-bottom:20px;padding:12px 16px;border:1px solid var(--danger);background:var(--danger-deep);color:var(--fg)}
+.alert.show{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.alert b{color:var(--danger);font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:2px}
+.alert button{background:none;border:0;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;min-width:32px;min-height:32px}
+.spin{width:14px;height:14px;border:2px solid var(--line-strong);border-top-color:var(--lav);border-radius:50%;animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}.app{transition:none}}
+
+/* visor */
+.shot{position:relative;aspect-ratio:16/10;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+.shot img{width:100%;height:100%;object-fit:contain;display:block}
+.empty{display:grid;place-items:center;text-align:center;gap:8px;padding:24px;color:var(--muted);max-width:42ch;margin:auto}
+.empty .big{font:300 34px var(--mono);color:var(--line-strong)}
+.empty b{color:var(--fg);font-weight:500}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.meter{border:1px solid var(--line);padding:10px 12px;background:var(--bg)}
+.meter .v{font:500 24px/1.2 var(--mono);margin-top:2px}
+.meter .v small{font-size:13px;color:var(--muted);font-weight:400}
+.bar{height:4px;background:var(--line);margin-top:8px}
+.bar i{display:block;height:100%;background:var(--lav);width:0;transition:width .4s}
+.bar.hot i{background:var(--warning)}.bar.over i{background:var(--danger)}
+.tl{list-style:none;display:flex;flex-direction:column;max-height:560px;overflow:auto}
+.tl li{display:grid;grid-template-columns:32px 1fr;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.tl li:last-child{border-bottom:0}
+.tl li.now{background:var(--lav-deep)}
+.tl .n{font:500 12px var(--mono);color:var(--lav);padding-top:2px}
+.tl .act{font-weight:600}
+.tl .obs{color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.tl .cost{font:12px var(--mono);color:var(--muted);margin-top:4px}
+.phase{display:flex;align-items:center;gap:8px;font:500 13px var(--mono);color:var(--lav)}
+.scrim{display:none}
+@media (max-width:860px){
+  .app,.app.collapsed{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;width:260px;transform:translateX(-100%);transition:transform .2s}
+  .app.collapsed .nav .txt,.app.collapsed .brand b,.app.collapsed .nav .label{display:revert}
+  .app.collapsed .side-foot{display:block}
+  .app.open .side{transform:none}
+  .app.open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:25}
+  .top{padding:0 12px}.page{padding:24px 16px 48px}
+  .head h1{font-size:24px}
+  .chip.hide-sm{display:none}
+}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:24px}
+.tcard{display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--surface);border:1px solid var(--line)}
+.tcard.active{border-color:var(--lav);box-shadow:var(--glow)}
+.tcard .top2{display:flex;gap:8px;align-items:center}
+.tcard .id{font:600 15px var(--mono)}
+.tcard p{flex:1;font-size:15px}
+.tcard .foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.st{display:inline-flex;align-items:center;gap:6px;font:500 13px var(--mono)}
+.st.ok{color:var(--success)}.st.bad{color:var(--danger)}.st.run{color:var(--lav)}.st.mut{color:var(--muted)}.st.warn{color:var(--warning)}
+.mon{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;margin-bottom:8px}
+.mon .tlcard{display:flex;flex-direction:column}
+.mon .tlcard .tl{flex:1}
+.note{margin-top:12px;font-size:14px;color:var(--muted)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th{font:500 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:12px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
+tr:last-child td{border-bottom:0}
+td.num{font-family:var(--mono);white-space:nowrap}
+.sec{margin-top:40px}
+.sec>.label{display:block;margin-bottom:12px}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.how .card{padding:16px}
+.how h3{font:600 16px var(--sans);margin:6px 0}
+.how p{color:var(--muted);font-size:14px}
+.view[hidden]{display:none}
+@media (max-width:1000px){.mon{grid-template-columns:1fr}.tl{max-height:360px}}
+@media (max-width:480px){.meters{grid-template-columns:1fr 1fr}.tcard .foot .btn{width:100%}.head .row .btn{width:100%}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side" id="side" aria-label="Navegación">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><b>Frontier</b></div>
+    <nav class="nav" id="nav" aria-label="Secciones"></nav>
+    <div class="side-foot">Solo local · LAB</div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <header class="top">
+      <button class="iconbtn" id="sideBtn" aria-label="Mostrar u ocultar la barra lateral" aria-expanded="true" aria-controls="side">≡</button>
+      <div class="crumb label">Frontier / Laboratorio</div>
+      <span class="chip hide-sm">Actor <b id="actor">—</b></span><span class="chip">Tope <b id="cap">—</b></span>
+      <button class="iconbtn" id="themeBtn" type="button" aria-label="Cambiar tema">☾</button>
+    </header>
+    <main class="page">
+<div class="alert" id="alert" role="alert"><div><b id="alertT">Aviso</b><span id="alertM"></span></div><button type="button" id="alertX" aria-label="Cerrar aviso">×</button></div>
+
+<section class="view" id="v-lab" aria-labelledby="h-lab">
+  <div class="head">
+    <span class="label">Laboratorio</span>
+    <div class="row">
+      <div><h1 id="h-lab">Pon a prueba al agente</h1>
+      <p>Elige una prueba y mira al agente resolverla.</p></div>
+      <button class="btn primary" id="runAll" type="button">▶ Correr todas</button>
+    </div>
+  </div>
+  <div class="grid" id="tests" aria-live="polite"></div>
+
+  <div class="mon">
+    <div class="card">
+      <div class="card-h"><span class="label">Captura actual</span><span class="phase" id="phase"><span class="chip">Sin actividad</span></span></div>
+      <div class="card-b">
+        <div class="shot" id="shot"></div>
+        <div class="meters">
+          <div class="meter"><span class="label">Tiempo</span><div class="v" id="mTime">00:00</div></div>
+          <div class="meter"><span class="label">Coste</span><div class="v" id="mCost">$0.000 <small id="mCap"></small></div><div class="bar" id="mBar"><i></i></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card tlcard">
+      <div class="card-h"><span class="label">Línea de tiempo</span><span class="chip" id="stepCount">0 pasos</span></div>
+      <ol class="tl" id="tl" aria-live="polite"></ol>
+    </div>
+  </div>
+</section>
+
+<section class="view" id="v-res" aria-labelledby="h-res" hidden>
+  <div class="head"><span class="label">Resultados</span><h1 id="h-res">Resultados acumulados</h1><p>Cada fila compara lo que hizo el agente con lo esperado. El resultado se da por bueno solo si coinciden el estado, la verificación del escritorio y, cuando aplica, la respuesta.</p></div>
+  <div class="card"><div class="tw"><table>
+    <caption class="sr">Resultados de las pruebas</caption>
+    <thead><tr><th>Prueba</th><th>Resultado</th><th>Estado (obtenido / esperado)</th><th>Verificación</th><th>Respuesta</th><th>Tiempo</th><th>Pasos</th><th>Coste</th></tr></thead>
+    <tbody id="rows"></tbody></table></div></div>
+</section>
+
+<section class="view" id="v-how" aria-labelledby="h-how" hidden>
+  <div class="head"><span class="label">Cómo se mide</span><h1 id="h-how">Cómo se mide cada prueba</h1><p>Cada ejecución sigue los mismos pasos, así los resultados se pueden comparar entre sí.</p></div>
+  <div class="how">
+    <div class="card"><span class="label">Paso 1</span><h3>Escritorio limpio</h3><p>Antes de cada prueba se restauran los datos iniciales de la app y se esperan 6 segundos a que el navegador cargue.</p></div>
+    <div class="card"><span class="label">Paso 2</span><h3>El agente actúa</h3><p>Se le da solo la instrucción. Ve capturas de pantalla y opera con clics y teclado, igual que una persona.</p></div>
+    <div class="card"><span class="label">Paso 3</span><h3>Verificación independiente</h3><p>El escritorio comprueba si los cambios son los esperados, sin acciones de más ni registros duplicados. No muestra valores.</p></div>
+    <div class="card"><span class="label">Estado y respuesta</span><h3>Terminada o fallida</h3><p>Algunas pruebas deben terminar y otras deben fallar a propósito (por ejemplo, datos ambiguos). En las preguntas se compara además la respuesta.</p></div>
+    <div class="card"><span class="label">Tiempo y coste</span><h3>Tope por tarea</h3><p>El tiempo se mide de principio a fin, incluido el reinicio. El coste se acumula por paso y la tarea se detiene al llegar al tope.</p></div>
+    <div class="card"><span class="label">Una a la vez</span><h3>Escritorio compartido</h3><p>Solo corre una prueba al mismo tiempo. Si otro proceso usa el escritorio, el botón avisará de que está ocupado.</p></div>
+  </div>
+</section>
+    </main>
+  </div>
+</div>
+<script>
+const TOKEN=new URLSearchParams(location.search).get("token")||"";
+const withToken=(p)=>p+(p.includes("?")?"&":"?")+"token="+encodeURIComponent(TOKEN);
+const $=(s,r=document)=>r.querySelector(s);
+const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+const fmtUsd=(n)=>"$"+(Number(n)||0).toFixed(3);
+const fmtMs=(ms)=>{const s=Math.max(0,Math.round(ms/1000));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
+const ACT={click:"Clic",double_click:"Doble clic",right_click:"Clic derecho",type:"Escribe",replace_text:"Reemplaza texto",key:"Pulsa tecla",scroll:"Desplaza",wait:"Espera",zoom:"Amplía zona",done:"Da la tarea por terminada",fail:"Declara que no puede completarla"};
+function fmtAction(a){
+  if(Array.isArray(a))return a.map(fmtAction).join(" · ");
+  if(!a||typeof a!=="object")return "Acción";
+  let s=ACT[a.tipo]||a.tipo||"Acción";
+  if(a.x!=null&&a.y!=null&&/click/.test(a.tipo))s+=" en ("+a.x+", "+a.y+")";
+  if(a.texto)s+=" «"+String(a.texto).slice(0,60)+"»";
+  if(a.tecla)s+=" "+a.tecla;
+  if(a.tipo==="done"||a.tipo==="fail")s+=a.resumen?": "+String(a.resumen).slice(0,120):"";
+  return s;
+}
+function setupShell(active){
+  const app=$(".app"),btn=$("#themeBtn");
+  const apply=(t)=>{document.documentElement.dataset.theme=t;btn.textContent=t==="dark"?"☾":"☀";
+    btn.setAttribute("aria-label",t==="dark"?"Cambiar a tema claro":"Cambiar a tema oscuro");btn.title=btn.getAttribute("aria-label")};
+  apply(document.documentElement.dataset.theme);
+  btn.onclick=()=>{const t=document.documentElement.dataset.theme==="dark"?"light":"dark";apply(t);try{localStorage.setItem("theme",t)}catch(e){}};
+  try{if(localStorage.getItem("side")==="1")app.classList.add("collapsed")}catch(e){}
+  const mobile=()=>matchMedia("(max-width:860px)").matches;
+  $("#sideBtn").onclick=()=>{
+    if(mobile()){const o=app.classList.toggle("open");$("#sideBtn").setAttribute("aria-expanded",o)}
+    else{const c=app.classList.toggle("collapsed");$("#sideBtn").setAttribute("aria-expanded",!c);try{localStorage.setItem("side",c?"1":"0")}catch(e){}}
+  };
+  $("#scrim").onclick=()=>app.classList.remove("open");
+  document.addEventListener("keydown",(e)=>{if(e.key==="Escape")app.classList.remove("open")});
+  const items=[["01","Laboratorio","/lab",""],["02","En vivo","/live",""],["03","Resultados","/lab","#resultados"],["04","Cómo se mide","/lab","#como"]];
+  const nav=$("#nav");nav.append(el("span","label","Secciones"));
+  for(const [ico,txt,path,hash] of items){
+    const a=el("a");a.href=withToken(path)+hash;a.dataset.key=txt;a.title=txt;
+    a.append(el("span","ico",ico),el("span","txt",txt));nav.append(a);
+  }
+  const mark=()=>{for(const a of nav.querySelectorAll("a")){a.toggleAttribute("aria-current",a.dataset.key===active());if(a.dataset.key===active())a.setAttribute("aria-current","page")}};
+  return mark;
+}
+const VIEWS={"":["v-lab","Laboratorio"],"#resultados":["v-res","Resultados"],"#como":["v-how","Cómo se mide"]};
+let tests=[],meta={actor:"",cost_cap_usd:0},st={running:false,queue:[],current:null,results:[],error:null},shown=null,loaded=false;
+const mark=setupShell(()=>(VIEWS[location.hash]||VIEWS[""])[1]);
+function route(){const v=VIEWS[location.hash]||VIEWS[""];for(const k in VIEWS)$("#"+VIEWS[k][0]).hidden=VIEWS[k][0]!==v[0];mark();$("#app").classList.remove("open")}
+addEventListener("hashchange",route);route();
+
+function showAlert(t,m){$("#alertT").textContent=t;$("#alertM").textContent=m;$("#alert").classList.add("show")}
+$("#alertX").onclick=()=>$("#alert").classList.remove("show");
+async function api(path,opt){
+  let r;try{r=await fetch(withToken(path),opt)}catch(e){throw {t:"Sin conexión",m:"No se pudo hablar con el servidor. Comprueba que sigue en marcha e inténtalo de nuevo."}}
+  if(r.status===401)throw {t:"Falta el token",m:"Abre esta página con ?token=TU_TOKEN al final de la dirección (el mismo TEAM_TOKEN del servidor)."};
+  if(r.status===404)throw {t:"Laboratorio desactivado",m:"Arranca el servidor con LAB=1 LIVE_VIEW=1 para usar esta página."};
+  let j={};try{j=await r.json()}catch(e){}
+  if(r.status===409)throw {t:"Escritorio ocupado",m:"Ya hay una prueba en curso, o el escritorio lo está usando otro proceso. Espera a que termine."};
+  if(!r.ok)throw {t:"No se pudo completar",m:j.error||("El servidor respondió con el código "+r.status+".")};
+  return j;
+}
+const NIVEL={facil:["fácil","ok"],regular:["regular","yel"],dificil:["difícil","bad"]};
+const FASE={reiniciando:"Reiniciando el escritorio",esperando:"Esperando a que cargue la app",agente:"El agente está trabajando",verificando:"Verificando el resultado"};
+function stateOf(id){
+  if(st.current&&st.current.id===id)return["run","En curso"];
+  if(st.queue.includes(id))return["mut","En cola"];
+  const r=st.results.find((x)=>x.id===id);
+  if(!r)return["mut","Sin ejecutar"];
+  if(r.estado==="error")return["warn","! Error al ejecutar"];
+  return r.ok?["ok","✓ Superada"]:["bad","✗ No superada"];
+}
+function renderTests(){
+  const box=$("#tests");box.textContent="";
+  if(!tests.length){const e=el("div","card empty");e.append(el("div","big","∅"),el("b",null,"No hay pruebas para mostrar"),el("span",null,"Cuando el servidor cargue las pruebas E1–E5 aparecerán aquí."));box.append(e);return}
+  for(const t of tests){
+    const [s,txt]=stateOf(t.id),c=el("article","tcard"+(st.current&&st.current.id===t.id?" active":""));
+    const top=el("div","top2"),nv=NIVEL[t.nivel]||[t.nivel||"—",""];
+    top.append(el("span","id",t.id),el("span","chip "+nv[1],nv[0]));
+    const foot=el("div","foot"),stt=el("span","st "+s);
+    if(s==="run")stt.append(el("span","spin"));stt.append(document.createTextNode(txt));
+    const b=el("button","btn","Ejecutar");b.type="button";b.disabled=st.running;b.setAttribute("aria-label","Ejecutar la prueba "+t.id);b.onclick=()=>run(t.id);
+    foot.append(stt,b);c.append(top,el("p",null,t.instruccion),foot);box.append(c);
+  }
+}
+function placeholder(msg,sub){const e=el("div","empty");e.append(el("div","big","▭"),el("b",null,msg),el("span",null,sub));return e}
+function renderMonitor(){
+  const cur=st.current||shown,live=!!st.current;
+  if(st.current)shown=st.current;
+  const ph=$("#phase");ph.textContent="";
+  if(live){const sp=el("span","spin");ph.append(sp,document.createTextNode(cur.id+" · "+FASE[cur.fase])) }
+  else ph.append(el("span","chip",cur?"Última ejecución: "+cur.id:"Sin actividad"));
+  const shot=$("#shot");
+  const key=cur&&cur.png?cur.png.length+":"+cur.png.slice(-24):"";
+  if(shot.dataset.k!==key){
+    shot.dataset.k=key;shot.textContent="";
+    const none=()=>{shot.textContent="";shot.append(placeholder(live?"Esperando la primera captura":"Aún no hay captura","Elige una prueba y pulsa «Ejecutar»: aquí verás la pantalla del escritorio mientras el agente trabaja."))};
+    if(key){const im=new Image();im.alt="Captura actual del escritorio";im.onerror=()=>{shot.textContent="";shot.append(placeholder("No se pudo mostrar esta captura","El agente sigue trabajando; la siguiente captura aparecerá sola."))};im.src="data:image/png;base64,"+cur.png;shot.append(im)}else none();
+  }
+  const steps=cur?cur.steps:[];
+  $("#stepCount").textContent=steps.length+(steps.length===1?" paso":" pasos");
+  const tl=$("#tl");tl.textContent="";
+  if(!steps.length){const li=el("li");li.style.display="block";li.append(placeholder(live?"El agente aún no ha dado su primer paso":"Sin pasos todavía","Cada acción aparecerá aquí con lo que el modelo observó y el coste acumulado."));tl.append(li)}
+  steps.forEach((s,i)=>{
+    const li=el("li",i===steps.length-1&&live?"now":"");li.append(el("span","n",String(s.step).padStart(2,"0")));
+    const d=el("div");d.append(el("div","act",fmtAction(s.accion)));if(s.observacion)d.append(el("div","obs",s.observacion));
+    d.append(el("div","cost","Coste acumulado "+fmtUsd(s.costUsd)));li.append(d);tl.append(li);
+  });
+  if(live)tl.scrollTop=tl.scrollHeight;
+  const last=!live&&cur?st.results.find((r)=>r.id===cur.id):null;
+  $("#mTime").textContent=live?fmtMs(Date.now()-cur.startedAt):last?fmtMs(last.tiempo_ms):"00:00";
+  const cost=live?cur.costUsd:last?last.coste_usd:0,cap=meta.cost_cap_usd||0;
+  $("#mCost").firstChild.nodeValue=fmtUsd(cost)+" ";$("#mCap").textContent=cap?"de tope "+fmtUsd(cap):"";
+  const p=cap?Math.min(100,cost/cap*100):0,bar=$("#mBar");bar.firstElementChild.style.width=p+"%";bar.className="bar"+(p>=100?" over":p>=75?" hot":"");
+  $("#runAll").disabled=st.running;
+}
+function renderResults(){
+  const tb=$("#rows");tb.textContent="";
+  if(!st.results.length){const tr=el("tr"),td=el("td");td.colSpan=8;td.append(placeholder("Todavía no hay resultados","Ejecuta una prueba desde la sección Laboratorio y aparecerá aquí."));tr.append(td);tb.append(tr);return}
+  for(const r of [...st.results].sort((a,b)=>a.id.localeCompare(b.id))){
+    const tr=el("tr"),add=(c,cls)=>{const td=el("td",cls);if(c instanceof Node)td.append(c);else td.textContent=c;tr.append(td);return td};
+    add(r.id,"num");
+    const res=el("span","st "+(r.estado==="error"?"warn":r.ok?"ok":"bad"),r.estado==="error"?"! Error":r.ok?"✓ Superada":"✗ No superada");add(res);
+    add(r.estado==="error"?"—":r.estado+" / "+r.estado_esperado);
+    const ck=el("div");
+    if(r.error){ck.append(el("span","st warn",r.error))}
+    else{ck.append(el("span","st "+(r.check_pass?"ok":"bad"),r.check_pass?"✓ Pasa":"✗ No pasa"));for(const c of r.checks){const l=el("div",null,(c.ok?"✓ ":"✗ ")+c.nombre);l.style.cssText="font-size:13px;color:var(--muted)";ck.append(l)}}
+    add(ck);
+    if(r.respuesta_ok===null)add("No aplica");
+    else add((r.respuesta_ok?"✓ ":"✗ ")+(r.respuesta_obtenida??"sin respuesta")+" (esperada "+r.respuesta_esperada+")");
+    add(fmtMs(r.tiempo_ms),"num");add(String(r.pasos),"num");add(fmtUsd(r.coste_usd),"num");tb.append(tr);
+  }
+}
+function render(){renderTests();renderMonitor();renderResults()}
+async function run(id){
+  try{await api("/lab/run?id="+encodeURIComponent(id),{method:"POST"});$("#alert").classList.remove("show");st.running=true;render();poll(true);if(location.hash)location.hash="";window.scrollTo({top:$(".mon").offsetTop-80,behavior:"smooth"})}
+  catch(e){showAlert(e.t||"Error",e.m||String(e))}
+}
+$("#runAll").onclick=()=>run("all");
+let timer=null;
+async function poll(now){
+  clearTimeout(timer);
+  try{st=await api("/lab/state");if(st.error)showAlert("La ejecución se detuvo",st.error);render()}
+  catch(e){showAlert(e.t||"Error",e.m||String(e))}
+  timer=setTimeout(poll,st.running?1000:4000);
+}
+(async()=>{
+  try{const j=await api("/lab/tests");tests=j.tests;meta=j;
+    $("#actor").textContent=j.actor;$("#cap").textContent=fmtUsd(j.cost_cap_usd);$("#mCap").textContent="de tope "+fmtUsd(j.cost_cap_usd)}
+  catch(e){showAlert(e.t||"Error",e.m||String(e))}
+  render();poll();
+})();
+setInterval(()=>{if(st.current)renderMonitor()},1000);
+
+</script>
+</body>
+</html>
