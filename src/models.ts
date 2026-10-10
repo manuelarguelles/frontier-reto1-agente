@@ -50,7 +50,7 @@ const FALLBACK: Record<string, string> = {
   "google/gemini-2.5-flash":         "anthropic/claude-haiku-4.5",
 };
 
-function defaultModel(role: ModelRole): string {
+export function defaultModel(role: ModelRole): string {
   if (role === "actor")       return process.env.AGENT_MODEL     ?? "anthropic/claude-sonnet-4.6";
   if (role === "localizador") return process.env.LOCALIZER_MODEL ?? "google/gemini-2.5-flash";
   /* verificador */           return process.env.VERIFIER_MODEL  ?? "anthropic/claude-haiku-4.5";

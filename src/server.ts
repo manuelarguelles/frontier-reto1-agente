@@ -5,7 +5,9 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, readFileSync as fsR
 import { runAgent, redact, type AgentResult, type AgentOpts } from "./agent.ts";
 import { RfbClient } from "./rfb.ts";
 import { createTrace, removeTrace, onStepHook, getTrace, listTraces } from "./trace.ts";
+import { createLab } from "./lab.ts";
 
+if (process.env.LAB === "1") process.env.LIVE_VIEW = "1"; // el laboratorio implica el visor en vivo
 const PORT = Number(process.env.PORT ?? 8080);
 const TEAM_TOKEN = process.env.TEAM_TOKEN ?? "";
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
@@ -83,9 +85,9 @@ const authed = (req: http.IncomingMessage) => {
   const h = req.headers.authorization ?? "";
   let tok = h.startsWith("Bearer ") ? h.slice(7) : "";
   // Visor local: el navegador no puede mandar Bearer; con LIVE_VIEW=1 se acepta ?token= SOLO en /live* y /tasks/{id}/trace
-  if (!tok && process.env.LIVE_VIEW === "1") {
+  if (!tok && (process.env.LIVE_VIEW === "1" || process.env.LAB === "1")) {
     const u = new URL(req.url ?? "/", "http://x");
-    if (u.pathname === "/live" || u.pathname.startsWith("/live/") || /^\/tasks\/[\w-]+\/trace$/.test(u.pathname)) tok = u.searchParams.get("token") ?? "";
+    if (u.pathname === "/live" || u.pathname.startsWith("/live/") || (process.env.LAB === "1" && (u.pathname === "/lab" || u.pathname.startsWith("/lab/"))) || /^\/tasks\/[\w-]+\/trace$/.test(u.pathname)) tok = u.searchParams.get("token") ?? "";
   }
   const got = Buffer.from(tok);
   const want = Buffer.from(TEAM_TOKEN);
@@ -136,8 +138,10 @@ function start(t: Task, tarea: string, url: string, password: string) {
     .finally(() => { clearTimeout(soft); clearTimeout(hard); });
 }
 
+const lab = createLab();
 const server = http.createServer(async (req, res) => {
   try {
+    if (await lab.handle(req, res, authed)) return; // /lab* (404 sin LAB=1)
     if (!authed(req)) return send(res, 401, { error: "no autorizado" });
     const url = new URL(req.url ?? "/", "http://x");
     if (req.method === "GET" && url.pathname === "/health") return send(res, 200, { ok: true });

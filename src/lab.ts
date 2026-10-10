@@ -1,276 +1,220 @@
-// Laboratorio local interactivo: ejecuta pruebas E1–E5 contra SIGECOM y devuelve resultados.
-// Solo activo con LAB=1 (implica LIVE_VIEW=1); sin LAB=1 las rutas dan 404 y nada se lee de disco.
-// Regla: NO editar agent.ts; reutilizar lógica de server.ts.
-
-import { readFileSync, existsSync } from "node:fs";
+// Laboratorio local interactivo (WP6). Solo activo con LAB=1 (implica LIVE_VIEW=1).
+// Sin LAB=1 las rutas /lab* dan 404 y NO se lee nada del disco.
+// Los secretos de private/desktop.env viven solo en el servidor: jamás se devuelven al navegador.
+import http from "node:http";
+import { mkdirSync, rmdirSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { makeSession } from "./models.ts";
+import { redact } from "./agent.ts";
+import { defaultModel, TASK_COST_CAP_USD } from "./models.ts";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = resolve(__filename, "..");
+const ROOT = resolve(fileURLToPath(import.meta.url), "..", "..");
+export const LOCK_DIR = "/tmp/frontier-desktop.lock"; // el mismo de scripts/with-desktop-lock.sh
 
-// Tipos
 export interface TestDef {
-  id: string;
-  instruccion: string;
+  id: string; nivel: string; instruccion: string;
   estado_esperado: "terminada" | "fallida";
-  respuesta_esperada?: string;
-  claves_razon?: string[];
+  respuesta_esperada?: string; claves_razon?: string[];
+  raw: any; // JSON completo de la prueba: es lo que recibe /__check (solo servidor)
 }
-
+export interface DesktopEnv { DESKTOP_URL: string; DESKTOP_HTTP: string; DESKTOP_PASSWORD: string; DESKTOP_TOKEN: string }
 export interface TestResult {
   id: string;
-  estado: "terminada" | "fallida" | "en_curso" | "error";
-  estado_esperado: "terminada" | "fallida";
-  paso_check: boolean;
-  respuesta_correcta: boolean;
-  respuesta_obtenida?: string;
-  tiempo_ms: number;
-  pasos: number;
-  coste_usd: number;
-  resumen?: string;
-  error?: string;
+  estado: "terminada" | "fallida" | "error";
+  estado_esperado: string;
+  ok: boolean;                       // estado esperado + __check + respuesta
+  check_pass: boolean | null;
+  checks: { nombre: string; ok: boolean }[];
+  respuesta_esperada?: string; respuesta_obtenida?: string; respuesta_ok: boolean | null;
+  razon_ok: boolean | null;
+  tiempo_ms: number; pasos: number; coste_usd: number;
+  resumen: string; error?: string;
+}
+export interface LabStep { step: number; accion: any; observacion?: string; plan?: string; costUsd: number }
+export interface LabCurrent {
+  id: string; fase: "reiniciando" | "esperando" | "agente" | "verificando";
+  task_id?: string; startedAt: number; steps: LabStep[]; png?: string; costUsd: number;
 }
 
-// Estilo lab: solo leo private/desktop.env y pruebas/*.json (solo en LAB=1)
-const DESKTOP_ENV_PATH = resolve(__dirname, "..", "private", "desktop.env");
+export interface LabDeps {
+  fetch: typeof fetch;
+  sleep: (ms: number) => Promise<void>;
+  readText: (path: string) => string;
+  listDir: (path: string) => string[];
+  exists: (path: string) => boolean;
+  mkdirLock: () => boolean; rmLock: () => void;
+  selfUrl: () => string; teamToken: () => string;
+  resetWaitMs: number; pollMs: number; maxWaitMs: number;
+  privateDir: string;
+}
+const defaults = (): LabDeps => ({
+  fetch: (...a) => fetch(...a),
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+  readText: (p) => readFileSync(p, "utf8"),
+  listDir: (p) => readdirSync(p),
+  exists: existsSync,
+  mkdirLock: () => { try { mkdirSync(LOCK_DIR); return true; } catch { return false; } },
+  rmLock: () => { try { rmdirSync(LOCK_DIR); } catch { /* */ } },
+  selfUrl: () => `http://127.0.0.1:${process.env.PORT ?? 8080}`,
+  teamToken: () => process.env.TEAM_TOKEN ?? "",
+  resetWaitMs: 6000, pollMs: 1000, maxWaitMs: 300_000,
+  privateDir: join(ROOT, "private"),
+});
 
-export interface DesktopEnv {
-  DESKTOP_URL: string;
-  DESKTOP_HTTP: string;
-  DESKTOP_PASSWORD: string;
-  DESKTOP_TOKEN: string;
-  TEAM_TOKEN: string;
+export const labEnabled = () => process.env.LAB === "1";
+
+export function parseEnvText(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (m) out[m[1]] = m[2].replace(/^(["'])(.*)\1$/, "$2");
+  }
+  return out;
 }
 
-export function loadDesktopEnv(): DesktopEnv {
-  if (!process.env.LAB || process.env.LAB !== "1") {
-    throw new Error("LAB=1 requerido para cargar desktop.env");
-  }
-  if (!existsSync(DESKTOP_ENV_PATH)) {
-    throw new Error(`desktop.env no encontrado en ${DESKTOP_ENV_PATH}`);
-  }
-  const content = readFileSync(DESKTOP_ENV_PATH, "utf8");
-  const out: Partial<DesktopEnv> = {};
-  for (const line of content.split("\n")) {
-    const [k, ...v] = line.split("=");
-    if (k && v.length > 0) out[k.trim()] = v.join("=").trim();
-  }
-  // Validar campos esenciales (DESKTOP_TOKEN y TEAM_TOKEN están en desktop.env para __reset/__check)
-  if (!out.DESKTOP_URL || !out.DESKTOP_HTTP || !out.DESKTOP_PASSWORD) {
-    throw new Error("desktop.env incompleto (falta DESKTOP_URL/HTTP/PASSWORD)");
-  }
-  return out as DesktopEnv;
-}
+export function createLab(over: Partial<LabDeps> = {}) {
+  const d: LabDeps = { ...defaults(), ...over };
+  const results = new Map<string, TestResult>();
+  let current: LabCurrent | null = null;
+  let queue: string[] = [];
+  let running = false;
+  let lastError: string | null = null;
 
-export function loadTests(): TestDef[] {
-  if (!process.env.LAB || process.env.LAB !== "1") {
-    throw new Error("LAB=1 requerido para cargar pruebas");
+  function loadEnv(): DesktopEnv {
+    const p = join(d.privateDir, "desktop.env");
+    if (!d.exists(p)) throw new Error("No se encontró private/desktop.env");
+    const e = parseEnvText(d.readText(p));
+    for (const k of ["DESKTOP_URL", "DESKTOP_HTTP", "DESKTOP_PASSWORD", "DESKTOP_TOKEN"]) if (!e[k]) throw new Error(`private/desktop.env incompleto (falta ${k})`);
+    return e as unknown as DesktopEnv;
   }
-  const dir = join(__dirname, "..", "private", "challenge-1", "pruebas");
-  if (!existsSync(dir)) {
-    throw new Error(`directorio de pruebas no encontrado: ${dir}`);
-  }
-  const files = ["E1-crear-cliente.json", "E2-direccion-con-nota.json", "E3-facturas-vencidas.json",
-                 "E4-exportar-pedidos.json", "E5-homonimos.json"];
-  const out: TestDef[] = [];
-  for (const f of files) {
-    const path = join(dir, f);
-    if (existsSync(path)) {
-      const t: any = JSON.parse(readFileSync(path, "utf8"));
-      out.push({
-        id: t.id,
-        instruccion: t.instruccion,
-        estado_esperado: t.estado_esperado,
-        respuesta_esperada: t.respuesta_esperada,
-        claves_razon: t.claves_razon,
-      });
-    }
-  }
-  return out.sort((a, b) => a.id.localeCompare(b.id));
-}
-
-// Cliente HTTP simple para __reset y __check
-function httpPost(url: string, token: string, body?: any): Promise<{ ok: boolean; body?: any; error?: string }> {
-  return new Promise((resolve) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30s max por operación
-    fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    }).then(async (r) => {
-      clearTimeout(timeout);
-      if (!r.ok) {
-        resolve({ ok: false, error: `HTTP ${r.status}` });
-        return;
-      }
-      const j = await r.json().catch(() => ({}));
-      resolve({ ok: true, body: j });
-    }).catch((e: any) => {
-      clearTimeout(timeout);
-      resolve({ ok: false, error: e?.message ?? String(e) });
+  function loadTests(): TestDef[] {
+    const dir = join(d.privateDir, "challenge-1", "pruebas");
+    if (!d.exists(dir)) throw new Error("No se encontró private/challenge-1/pruebas");
+    return d.listDir(dir).filter((f) => /^E\d+.*\.json$/.test(f)).sort().map((f) => {
+      const t = JSON.parse(d.readText(join(dir, f)));
+      return { id: t.id, nivel: t.nivel ?? "", instruccion: t.instruccion, estado_esperado: t.estado_esperado,
+        respuesta_esperada: t.respuesta_esperada, claves_razon: t.claves_razon, raw: t } as TestDef;
     });
-  });
-}
+  }
+  const publicTests = () => loadTests().map((t) => ({ id: t.id, nivel: t.nivel, instruccion: t.instruccion }));
 
-// Ejecuta una prueba y devuelve el resultado
-export async function runTest(def: TestDef, env: DesktopEnv): Promise<TestResult> {
-  const start = performance.now();
-  const result: TestResult = {
-    id: def.id,
-    estado: "en_curso",
-    estado_esperado: def.estado_esperado,
-    paso_check: false,
-    respuesta_correcta: false,
-    tiempo_ms: 0,
-    pasos: 0,
-    coste_usd: 0,
+  async function post(url: string, token: string, body?: unknown) {
+    const r = await d.fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(30_000) });
+    if (!r.ok) throw new Error(`${url.split("/").pop()} respondió HTTP ${r.status}`);
+    return r.json().catch(() => ({})) as Promise<any>;
+  }
+  const getSelf = async (path: string) => {
+    const r = await d.fetch(d.selfUrl() + path, { headers: { Authorization: `Bearer ${d.teamToken()}` }, signal: AbortSignal.timeout(10_000) });
+    return r.ok ? ((await r.json()) as any) : null;
   };
 
-  try {
-    // 1. Resetear escritorio con DESKTOP_TOKEN
-    const resetUrl = `${env.DESKTOP_HTTP}/__reset`;
-    const resetRes = await httpPost(resetUrl, env.DESKTOP_TOKEN);
-    if (!resetRes.ok) {
-      throw new Error(`reset falló: ${resetRes.error}`);
+  async function runOne(t: TestDef, env: DesktopEnv): Promise<TestResult> {
+    const secrets = [env.DESKTOP_PASSWORD, env.DESKTOP_TOKEN, env.DESKTOP_URL, env.DESKTOP_HTTP];
+    const t0 = performance.now();
+    const cur: LabCurrent = { id: t.id, fase: "reiniciando", startedAt: Date.now(), steps: [], costUsd: 0 };
+    current = cur;
+    const r: TestResult = { id: t.id, estado: "error", estado_esperado: t.estado_esperado, ok: false, check_pass: null, checks: [],
+      respuesta_esperada: t.respuesta_esperada, respuesta_ok: null, razon_ok: null, tiempo_ms: 0, pasos: 0, coste_usd: 0, resumen: "" };
+    try {
+      await post(`${env.DESKTOP_HTTP}/__reset`, env.DESKTOP_TOKEN);
+      cur.fase = "esperando"; await d.sleep(d.resetWaitMs);
+      cur.fase = "agente";
+      const made = await (await d.fetch(d.selfUrl() + "/tasks", { method: "POST",
+        headers: { Authorization: `Bearer ${d.teamToken()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ tarea: t.instruccion, escritorio: { url: env.DESKTOP_URL, password: env.DESKTOP_PASSWORD } }) })).json() as any;
+      if (!made?.task_id) throw new Error("el servidor no creó la tarea");
+      cur.task_id = made.task_id;
+      let estado = "en_curso", resumen = "";
+      const limit = performance.now() + d.maxWaitMs;
+      while (estado === "en_curso" && performance.now() < limit) {
+        await d.sleep(d.pollMs);
+        const tr = await getSelf(`/tasks/${made.task_id}/trace`).catch(() => null);
+        if (tr?.steps?.length) {
+          const last = tr.steps[tr.steps.length - 1];
+          cur.png = last.png; cur.costUsd = last.costUsd;
+          cur.steps = tr.steps.map((s: any) => ({ step: s.step, accion: s.accion, observacion: s.observacion, plan: s.plan, costUsd: s.costUsd }));
+        }
+        const st = await getSelf(`/tasks/${made.task_id}`).catch(() => null);
+        if (st) { estado = st.estado; resumen = st.resumen ?? ""; }
+      }
+      if (estado === "en_curso") throw new Error("la tarea no terminó a tiempo");
+      r.estado = estado as any; r.resumen = redact(resumen, secrets);
+      cur.fase = "verificando";
+      const chk = await post(`${env.DESKTOP_HTTP}/__check`, env.DESKTOP_TOKEN, t.raw);
+      r.check_pass = chk?.pass === true;
+      r.checks = Array.isArray(chk?.checks) ? chk.checks.map((c: any) => ({ nombre: String(c.nombre), ok: c.ok === true })) : [];
+      if (t.respuesta_esperada !== undefined) {
+        const m = resumen.match(/[Rr]espuesta:\s*([^\n]+?)\s*$/m);
+        r.respuesta_obtenida = m ? redact(m[1].replace(/\.$/, ""), secrets) : undefined;
+        r.respuesta_ok = r.respuesta_obtenida === t.respuesta_esperada;
+      }
+      if (t.claves_razon?.length) r.razon_ok = t.claves_razon.every((c) => resumen.includes(c));
+      r.ok = r.estado === t.estado_esperado && r.check_pass === true && r.respuesta_ok !== false;
+    } catch (e: any) {
+      r.estado = "error"; r.error = redact(e?.message ?? String(e), secrets);
     }
-    // Esperar a que el navegador cargue (mínimo 6s según spec)
-    await new Promise<void>((resolve) => setTimeout(() => resolve(), 6000));
-
-    // 2. Crear tarea contra el propio servidor (reutilizar lógica de POST /tasks)
-    // El servidor se ejecuta localmente en el mismo proceso (no hacemos HTTP a sí mismo)
-    // En su lugar, simularlo llamando a runAgent directamente (reutilizar agent.ts sin tocarlo)
-    // Para eso necesitamos construir el entorno de ejecución de runAgent
-    // Usamos el mismo server.ts como reference pero llamamos a runAgent directamente
-
-    // NOTA: runAgent requiere un servidor WebSocket RFB. Para hacerlo local sin tocar agent.ts,
-    //       creamos un cliente RFB conectado al escritorio real usando DESKTOP_URL.
-    //       Pero runAgent espera agentOpts.url y agentOpts.password, que vienen del POST /tasks.
-    //       Aquí usamos env.DESKTOP_URL y env.DESKTOP_PASSWORD directamente.
-
-    // Crear AbortController para la tarea
-    const controller = new AbortController();
-    const DEADLINE_MS = 270000; // 4.5 min
-    const deadline = performance.now() + DEADLINE_MS;
-
-    // Captura de pasos para conteo y coste
-    let stepsCount = 0;
-    let totalCostUsd = 0;
-
-    // Mockear log para capturar coste (reutilizar session.tracker)
-    const logF = (m: string) => {
-      // Coste aparece en logs como: [models] actor/... in=... out=... $0.xxx tot=0.xxx
-      const mCost = m.match(/tot=\$([0-9.]+)/);
-      if (mCost) totalCostUsd = parseFloat(mCost[1]);
-    };
-
-    // Crear session manual para acceder al tracker
-    const session = makeSession(logF);
-    // Accedemos al tracker directamente (no es exportado, pero usamos @ts-ignore para acceder)
-    (session as any).tracker.totalCostUsd = 0;
-    totalCostUsd = 0;
-
-    // Definir onStep para contar pasos
-    const onStep = (ev: { step: number; png: string; observacion?: string; plan?: string; accion: any; costUsd: number }) => {
-      stepsCount = ev.step;
-      totalCostUsd = ev.costUsd;
-    };
-
-    // Importar runAgent dinámicamente (mismo archivo, no modificar agent.ts)
-    const { runAgent } = await import("./agent.ts");
-
-    // Ejecutar la tarea
-    const agentRes = await runAgent({
-      tarea: def.instruccion,
-      url: env.DESKTOP_URL,
-      password: env.DESKTOP_PASSWORD,
-      signal: controller.signal,
-      deadlineMs: deadline,
-      log: logF,
-      onStep,
-    });
-
-    result.estado = agentRes.estado;
-    result.resumen = agentRes.resumen;
-
-    // 3. Ejecutar __check con el mismo token (DESKTOP_TOKEN)
-    const checkUrl = `${env.DESKTOP_HTTP}/__check`;
-    // Construir cuerpo de check: enviamos el testDef completo (como lo espera el servidor)
-    // El servidor espera JSON con campos específicos, usamos el testDef tal cual
-    const checkRes = await httpPost(checkUrl, env.DESKTOP_TOKEN, def);
-    if (!checkRes.ok) {
-      throw new Error(`check falló: ${checkRes.error}`);
-    }
-
-    // 4. Verificar resultado
-    // checkRes.body tiene: { pass: boolean, checks: [ {nombre, ok}, ... ] }
-    // pasamos si:
-    // - estado coincide con estado_esperado
-    // - pass es true (todos los checks ok)
-    result.paso_check = (agentRes.estado === def.estado_esperado) && (checkRes.body?.pass === true);
-
-    // 5. Verificar respuesta correcta (si es tarea de pregunta)
-    // Extraer "respuesta: <valor>" del resumen
-    let respObt: string | undefined;
-    let respExp: string | undefined = def.respuesta_esperada;
-    if (respExp) {
-      const m = agentRes.resumen?.match(/(?:^|[\s.;])[Rr]espuesta:\s*([^\n]+?)\s*$/m);
-      if (m) respObt = m[1].trim().replace(/\.$/, "");
-      result.respuesta_obtenida = respObt;
-      result.respuesta_correcta = respObt === respExp;
-    } else {
-      result.respuesta_correcta = true; // no aplica
-    }
-
-    // Si paso_check es true pero respuesta incorrecta (en preguntas), marcar fallo
-    if (result.paso_check && def.respuesta_esperada && !result.respuesta_correcta) {
-      result.paso_check = false;
-    }
-
-  } catch (e: any) {
-    result.estado = "error";
-    result.error = e?.message ?? String(e);
-    result.paso_check = false;
-  } finally {
-    result.tiempo_ms = performance.now() - start;
-    result.pasos = stepsCount;
-    result.coste_usd = totalCostUsd;
+    r.pasos = cur.steps.length ? cur.steps[cur.steps.length - 1].step : 0;
+    r.coste_usd = cur.costUsd; r.tiempo_ms = Math.round(performance.now() - t0);
+    results.set(t.id, r);
+    return r;
   }
 
-  return result;
-}
+  /** Lanza el run en segundo plano. Devuelve null si OK o un mensaje si no se pudo. */
+  function start(id: string): { code: number; error?: string; started?: string[] } {
+    let tests: TestDef[], env: DesktopEnv;
+    try { tests = loadTests(); env = loadEnv(); } catch (e: any) { return { code: 500, error: e.message }; }
+    const sel = id === "all" ? tests : tests.filter((t) => t.id === id);
+    if (!sel.length) return { code: 404, error: `La prueba ${id} no existe` };
+    if (running || !d.mkdirLock()) return { code: 409, error: "Ya hay una prueba en curso o el escritorio está en uso por otro proceso" };
+    running = true; lastError = null; queue = sel.map((t) => t.id);
+    (async () => {
+      try { for (const t of sel) { await runOne(t, env); queue = queue.filter((q) => q !== t.id); } }
+      catch (e: any) { lastError = e?.message ?? String(e); }
+      finally { running = false; current = null; queue = []; d.rmLock(); }
+    })();
+    return { code: 202, started: sel.map((t) => t.id) };
+  }
 
-// Candado (file lock) para un solo run a la vez
-export function tryAcquireLock(): boolean {
-  if (!process.env.LAB || process.env.LAB !== "1") return false;
-  const fs = await import("node:fs");
-  const path = "/tmp/frontier-desktop.lock";
-  try {
-    // mkdir es atómico en POSIX: éxito si no existe
-    fs.mkdirSync(path, { recursive: false });
+  const state = () => ({ running, queue, current, results: [...results.values()], error: lastError });
+  const meta = () => ({ actor: defaultModel("actor"), cost_cap_usd: TASK_COST_CAP_USD });
+
+  const send = (res: http.ServerResponse, code: number, body: unknown) => {
+    const s = JSON.stringify(body);
+    res.writeHead(code, { "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(s) });
+    res.end(s);
+  };
+
+  /** Devuelve true si atendió la petición. Sin LAB=1: /lab* da 404 y no toca el disco. */
+  async function handle(req: http.IncomingMessage, res: http.ServerResponse, authed: (r: http.IncomingMessage) => boolean): Promise<boolean> {
+    const url = new URL(req.url ?? "/", "http://x");
+    if (url.pathname !== "/lab" && !url.pathname.startsWith("/lab/")) return false;
+    if (!labEnabled()) { send(res, 404, { error: "no encontrado" }); return true; }
+    if (!authed(req)) { send(res, 401, { error: "no autorizado" }); return true; }
+    const p = url.pathname;
+    if (req.method === "GET" && p === "/lab") {
+      try {
+        const html = d.readText(join(ROOT, "public", "lab.html"));
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Content-Length": Buffer.byteLength(html), "Cache-Control": "no-store" });
+        res.end(html);
+      } catch { send(res, 404, { error: "lab.html no encontrado" }); }
+      return true;
+    }
+    if (req.method === "GET" && p === "/lab/tests") {
+      try { send(res, 200, { ...meta(), tests: publicTests() }); } catch (e: any) { send(res, 500, { error: e.message }); }
+      return true;
+    }
+    if (req.method === "GET" && p === "/lab/state") { send(res, 200, state()); return true; }
+    if (req.method === "POST" && p === "/lab/run") {
+      const id = url.searchParams.get("id") ?? "";
+      if (!/^(all|E\d+)$/.test(id)) { send(res, 400, { error: "Indica id=E1..E5 o id=all" }); return true; }
+      const r = start(id);
+      send(res, r.code, r.error ? { error: r.error } : { ok: true, started: r.started });
+      return true;
+    }
+    send(res, 404, { error: "no encontrado" });
     return true;
-  } catch {
-    return false;
   }
+  return { handle, state, start, loadTests, loadEnv, meta };
 }
-
-export function releaseLock(): void {
-  const fs = await import("node:fs");
-  try {
-    fs.rmdirSync("/tmp/frontier-desktop.lock");
-  } catch { /* ignore */ }
-}
-
-// Hook para SSE (reutilizar trace.ts)
-// Se usa el mismo mecanismo que /live/stream: SSE envía eventos con task_id, step, observacion, accion, coste
-// Para lab, enviamos task_id fijo "lab" y actualizamos en tiempo real
-
-// Exportar funciones adicionales para tests
-export { tryAcquireLock, releaseLock, loadTests, loadDesktopEnv };
-
+export type Lab = ReturnType<typeof createLab>;
