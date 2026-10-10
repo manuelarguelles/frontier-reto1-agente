@@ -39,3 +39,11 @@ Medido: modelo 55–65 % del paso, espera de repintado ~25 %. Objetivos sin perd
 2. Espera adaptativa: tras `type`/`replace_text`/`key` sin cambio de página, no esperar el mínimo de 1 s; tras clic, mantener 1 s + estabilidad.
 3. Reducir tokens por paso (prompt del sistema más corto, 1 imagen + texto del historial) y medir con `scripts/bench.ts`.
 Reglas: no tocar `src/server.ts`; E1–E5 deben seguir pasando; reportar pasos y tiempo por tarea antes/después.
+
+## WP6 — Laboratorio local interactivo (`src/lab.ts`, `public/lab.html`, rutas nuevas en `src/server.ts`, tests)
+Objetivo: que Manuel, en su Mac, pulse un botón y vea al agente resolver cada tarea de práctica en vivo, con resultado y coste, sin terminal. Solo local: activo únicamente con `LAB=1` (implica `LIVE_VIEW=1`); sin `LAB=1` las rutas dan 404 y nada se lee de disco. NO edites `src/agent.ts`.
+1. `src/lab.ts`: lee `private/desktop.env` (solo en local, nunca lo devuelve al navegador) y las pruebas de `private/challenge-1/pruebas/*.json`; por prueba hace `POST {DESKTOP_HTTP}/__reset` con el token del escritorio, espera 6 s, crea la tarea contra el propio servidor (misma lógica que `POST /tasks`, reutilizando funciones de server.ts), sondea, y llama a `/__check`; devuelve estado, `__check`, `respuesta:` correcta, tiempo, pasos y coste. Un solo run a la vez (candado como `scripts/with-desktop-lock.sh` vía `mkdir /tmp/frontier-desktop.lock`).
+2. Rutas (solo `LAB=1`, mismo `?token=` que el visor): `GET /lab` (HTML), `GET /lab/tests` (lista E1–E5 con su instrucción), `POST /lab/run?id=E3` o `?id=all`, `GET /lab/state` (resultados acumulados), SSE reutilizando `/live/stream`.
+3. `public/lab.html`: una página sin dependencias con botones por prueba y "Correr todas", tabla de resultados (✓/✗, estado vs esperado, `__check`, respuesta, tiempo, pasos, coste), y a la derecha el visor en vivo de la tarea actual (captura, observación, acción) reutilizando el mismo SSE de `/live`. Español, legible en portátil.
+4. Tests sin red ni escritorio (mock de fetch y de disco): candado, rutas 404 sin `LAB=1`, nunca expone secretos del env.
+Reglas: tests verdes sin variables de entorno; no desplegar; commit/push de tus archivos.
