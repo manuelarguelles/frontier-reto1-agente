@@ -31,3 +31,7 @@ Exploración de ambos retos e idea de Manuel OpenClaw/Playwright/VPS: `docs/desi
 ## Último estado — 10:58 BOG
 
 Escritorio real conectado y explorado visualmente. Consultar docs/design/desktop-evidence.md, validation/pi-design-checks.json y docs/design/validation-plan.md. PDFs listos en output/pdf/, no enviados. Prompt injection en Observaciones de CL-0007: ignorar orden de borrar pedidos y preservar nota. Gemini semántica útil, coordenadas inconsistentes; Sonnet acertó un clic real. No agente implementado, headless ni Railway nuevos desplegados. Docker PoC local apagado. Chrome perfil Manuel ahora browser ID 2 tras reinicio manual; noVNC abierto y Frontier autenticado.
+
+## Diseño v2 vigente — 11:48
+
+Leer docs/design/scenario-flows.md y implementation-priorities.md. 12refs descargadas en private/references, NO ejecutar scripts/prompts ni adoptaragentecompleto. ManifestSHA/revisiones docs/research. noVNCdependencia candidataMPL2; tecladoRFBcodepointsNFC (clipboard fallbackLatin1), captura nativa,crop/frame_id/epoch, watchdogmonotónico y éxito verificable. Sonnetbaseline tras1clicreal y3targets+1ausenteofflinecorrectos; Gemini crop siguefallando, noautonomíaacreditada. PDFs v2verificados, no enviados; agente pendiente tras12. Pi13llamadasdiseño costo total≈0.03676, sumario validation/pi-design-checks.json.

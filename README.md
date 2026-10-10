@@ -44,3 +44,7 @@ Codex coordina la selección según la tarea. Tras dos intentos sin avance cambi
 ## Diseño listo para revisión
 
 [Diseño de una página](output/pdf/reto-1-diseno.pdf), [diagrama](output/pdf/reto-1-arquitectura.pdf) y [plan de validación](docs/design/validation-plan.md). [Exploración visual real y límites](docs/design/desktop-evidence.md). Nueve delegaciones Pi, coste US$0.02520; una acción Sonnet ejecutada y verificada, Gemini requiere mejorar coordenadas. No enviados al portal; cero corridas ocultas usadas. Implementación comienza tras diseño, a las 12:00.
+
+## Revisión de código y diseño v2 — 11:48
+
+12 repos descargados privadamente, SHA fijados en docs/research/downloaded-references.json. Revisiones de flujos y transporte en docs/research/code-review-agent-flows.md y code-review-input-grounding.md. [Escenarios rediseñados](docs/design/scenario-flows.md) y [prioridades de implementación](docs/design/implementation-priorities.md). PDFs actualizados/revisados. Sonnet baseline de actuación, Gemini lectura tras medir; [prueba offline](docs/validation/grounding-v2.md) limitada a una ficha. Agente aún no implementado; respetar inicio12:00. No entrega enviada.

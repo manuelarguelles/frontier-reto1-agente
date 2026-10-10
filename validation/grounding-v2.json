@@ -1,0 +1,69 @@
+{
+  "method": "Offline una ficha; bbox manuales antes de inferencia; no acciones ejecutadas ni éxito end-to-end. Modelo no recibió bbox/soluciones.",
+  "sonnet": {
+    "model": "anthropic/claude-sonnet-4.6",
+    "cost_usd": 0.009230249999999999,
+    "checks": [
+      {
+        "target": "Dirección",
+        "pass": true,
+        "proposed": {
+          "name": "Dirección",
+          "present": true,
+          "x": 688,
+          "y": 247
+        }
+      },
+      {
+        "target": "Guardar",
+        "pass": true,
+        "proposed": {
+          "name": "Guardar",
+          "present": true,
+          "x": 66,
+          "y": 399
+        }
+      },
+      {
+        "target": "Volver",
+        "pass": true,
+        "proposed": {
+          "name": "Volver",
+          "present": true,
+          "x": 144,
+          "y": 399
+        }
+      },
+      {
+        "target": "Eliminar cliente",
+        "pass": true,
+        "proposed": {
+          "name": "Eliminar cliente",
+          "present": false,
+          "x": null,
+          "y": null
+        }
+      }
+    ]
+  },
+  "gemini_crop": {
+    "model": "google/gemini-2.5-flash",
+    "cost_usd": 0.0006515,
+    "local_point": [
+      284,
+      99
+    ],
+    "transformed_point": [
+      714,
+      269
+    ],
+    "target_bbox": [
+      476,
+      236,
+      901,
+      258
+    ],
+    "pass": false
+  },
+  "limitations": "Una captura vista; no tasa de generalización ni comparación estadística; crop por sí solo no arregló esta coordenada."
+}

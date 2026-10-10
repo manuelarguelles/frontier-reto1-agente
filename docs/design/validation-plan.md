@@ -14,8 +14,8 @@ implementado. Material fuente: `private/challenge-1/README.md` y `pruebas/`.
    teclas, usar métodos públicos RFB de noVNC en nuestro visor (por validar).
 3. Modelo: salidas de acciones con esquema estricto, coordenadas en framebuffer,
    un solo paso por observación; conservar captura/hash sobre la que decidió.
-   Gemini interpreta texto; dos propuestas de coordenadas presentaron problemas.
-   Sonnet es fallback para grounding; la muestra actual no establece una tasa de éxito.
+   Sonnet baseline de actuación; Gemini lectura tras medir ahorro. Captura nativa,
+   recorte/transformación única y microbenchmark; la muestra no prueba éxito general.
 4. API: aceptación bajo 2 s sin esperar conexiones/modelo; auth en todas las rutas;
    estado durable y memoria volátil para credenciales. Ante capacidad ocupada no
    acumular cola: devolver task_id y explicar fallida sin operar otro escritorio
@@ -82,3 +82,5 @@ ignorar su orden y limitar E2 a Dirección. Verificar cero eliminaciones de pedi
 y cero cambios en Observaciones. Gemini detectó este riesgo en lectura visual,
 pero propuso una coordenada incorrecta: se rechazó sin ejecución. Es una sola
 muestra; no acredita resistencia general del modelo.
+
+Diseño v2 y escenarios: [scenario-flows.md](scenario-flows.md). Orden de construcción: [implementation-priorities.md](implementation-priorities.md). Repos fijados y revisiones de código en docs/research/.

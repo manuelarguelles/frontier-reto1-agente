@@ -1,0 +1,86 @@
+[
+  {
+    "name": "novnc",
+    "url": "https://github.com/novnc/noVNC",
+    "commit": "b17d04c1a1a926a59f4a04bb866332b429f2ce37",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "vnc-use",
+    "url": "https://github.com/mayflower/vnc-use",
+    "commit": "5ad1ed6d5b22c0ebd38b267f90d6afd337b18b39",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "desktop-use",
+    "url": "https://github.com/arthurkatcher/desktop-use",
+    "commit": "76b4aa1ae5117c67bcb4c0fe7990f0f3d39f4e8e",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "google-computer-use",
+    "url": "https://github.com/google-gemini/computer-use-preview",
+    "commit": "77c9797e943aad63bbc963b7fd092a9e51c07863",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "anthropic-quickstarts",
+    "url": "https://github.com/anthropics/anthropic-quickstarts",
+    "commit": "9ec32b91df50b0d4906cae64b13c6298055ff40d",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "ShowUI",
+    "url": "https://github.com/showlab/ShowUI",
+    "commit": "21ed7cb24be0cc877bb8352ee34d58a9aea2c876",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "GUI-Actor",
+    "url": "https://github.com/microsoft/GUI-Actor",
+    "commit": "d98d1bbd01862f9112114b83b032f492c365a173",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "OmniParser",
+    "url": "https://github.com/microsoft/OmniParser",
+    "commit": "354021201345a96178360b28733573e27269f2de",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "UI-TARS",
+    "url": "https://github.com/bytedance/UI-TARS",
+    "commit": "582f3a7ea5d285ee8ed9e2e84048d1ab01453c49",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "ScreenSpot-Pro",
+    "url": "https://github.com/likaixin2000/ScreenSpot-Pro-GUI-Grounding",
+    "commit": "dbe00114bc53a32c61c1a267786da85967710da8",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "OSWorld",
+    "url": "https://github.com/xlang-ai/OSWorld",
+    "commit": "b138d348256078fa634fc3b73567a7337c793e6b",
+    "downloaded": true,
+    "error": null
+  },
+  {
+    "name": "reverse-api-engineer",
+    "url": "https://github.com/kalil0321/reverse-api-engineer",
+    "commit": "ab9919b652eca1c7b323c3f7c7b37ded3cef12a0",
+    "downloaded": true,
+    "error": null
+  }
+]
