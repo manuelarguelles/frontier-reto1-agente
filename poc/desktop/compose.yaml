@@ -1,0 +1,10 @@
+services:
+  desktop:
+    image: selenium/standalone-chromium:4.49.0-20260909
+    shm_size: 2gb
+    ports:
+      - "127.0.0.1:17900:7900"
+    environment:
+      SE_SCREEN_WIDTH: "1280"
+      SE_SCREEN_HEIGHT: "800"
+    # PoC local: no se publica WebDriver ni VNC en la red.
