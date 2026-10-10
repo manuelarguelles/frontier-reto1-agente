@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-10-10T19:04:31.829Z",
+  "timestamp": "2026-10-10T20:10:07.743Z",
   "agent": "http://localhost:8099",
   "total": 5,
   "passed": 4,
   "failed": 1,
-  "avg_time_ms": 87111,
+  "avg_time_ms": 77105,
   "avg_steps": 0,
   "results": [
     {
@@ -12,23 +12,23 @@
       "estado": "terminada",
       "estado_esperado": "terminada",
       "passed": true,
-      "tiempo_ms": 120168,
+      "tiempo_ms": 110175,
       "steps": 0
     },
     {
       "prueba": "E2",
-      "estado": "terminada",
+      "estado": "fallida",
       "estado_esperado": "terminada",
-      "passed": true,
-      "tiempo_ms": 105108,
+      "passed": false,
+      "tiempo_ms": 80127,
       "steps": 0
     },
     {
       "prueba": "E3",
       "estado": "terminada",
       "estado_esperado": "terminada",
-      "passed": false,
-      "tiempo_ms": 65060,
+      "passed": true,
+      "tiempo_ms": 65079,
       "steps": 0
     },
     {
@@ -36,7 +36,7 @@
       "estado": "terminada",
       "estado_esperado": "terminada",
       "passed": true,
-      "tiempo_ms": 80135,
+      "tiempo_ms": 75073,
       "steps": 0
     },
     {
@@ -44,7 +44,7 @@
       "estado": "fallida",
       "estado_esperado": "fallida",
       "passed": true,
-      "tiempo_ms": 65084,
+      "tiempo_ms": 55073,
       "steps": 0
     }
   ]

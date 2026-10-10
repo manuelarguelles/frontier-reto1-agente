@@ -171,3 +171,19 @@ test("normalizeResumen deja 'respuesta: <valor>' en línea propia y en minúscul
   assert.equal(normalizeResumen("texto\nrespuesta: 45; 7"), "texto\nrespuesta: 45; 7");
   assert.equal(normalizeResumen("Hice X sin pregunta"), "Hice X sin pregunta");
 });
+
+test("GET /tasks incluye causa cuando la tarea es fallida (campo aditivo del contrato)", async () => {
+  const { spawn } = await import("node:child_process");
+  const p = spawn("node", ["src/server.ts"], { env: { ...process.env, TEAM_TOKEN: "t", PORT: "18411", DATA_DIR: "/tmp/causa-" + process.pid }, stdio: "ignore" });
+  try {
+    await new Promise((r) => setTimeout(r, 1200));
+    const H = { Authorization: "Bearer t", "Content-Type": "application/json" };
+    const body = JSON.stringify({ tarea: "x", escritorio: { url: "ws://127.0.0.1:1/websockify", password: "pw" } });
+    const { task_id } = await (await fetch("http://127.0.0.1:18411/tasks", { method: "POST", headers: H, body })).json();
+    let s: any = {};
+    for (let i = 0; i < 40 && s.estado !== "fallida"; i++) { await new Promise((r) => setTimeout(r, 500)); s = await (await fetch(`http://127.0.0.1:18411/tasks/${task_id}`, { headers: H })).json(); }
+    assert.equal(s.estado, "fallida");
+    assert.ok(typeof s.causa === "string" && s.causa.length > 0, "debe traer causa");
+    assert.ok(!JSON.stringify(s).includes("pw"));
+  } finally { p.kill(); }
+});

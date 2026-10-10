@@ -59,7 +59,7 @@ const gracefulShutdown = async () => {
 process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
 
-interface Task { task_id: string; estado: "en_curso" | "terminada" | "fallida"; resumen: string; created: number }
+interface Task { task_id: string; estado: "en_curso" | "terminada" | "fallida"; resumen: string; created: number; causa?: string }
 const tasks = new Map<string, Task>();
 const STATE = `${DATA_DIR}/tasks.json`;
 let active: string | null = null;
@@ -68,7 +68,7 @@ mkdirSync(DATA_DIR, { recursive: true });
 if (existsSync(STATE)) {
   try {
     for (const t of JSON.parse(readFileSync(STATE, "utf8")) as Task[]) {
-      if (t.estado === "en_curso") { t.estado = "fallida"; t.resumen = "Servicio reiniciado durante la tarea; no se reintenta para evitar duplicados."; }
+      if (t.estado === "en_curso") { t.estado = "fallida"; t.causa = "servicio_reiniciado"; t.resumen = "Servicio reiniciado durante la tarea; no se reintenta para evitar duplicados."; }
       tasks.set(t.task_id, t);
     }
   } catch { /* estado corrupto: arranca vacío */ }
@@ -101,6 +101,7 @@ const readBody = (req: http.IncomingMessage) => new Promise<string>((ok, ko) => 
 function finish(t: Task, r: AgentResult) {
   if (t.estado !== "en_curso") return;
   t.resumen = r.resumen;
+  if (r.estado === "fallida" && r.causa) t.causa = r.causa;
   t.estado = r.estado; // terminal solo tras liberar entradas y cerrar el escritorio (ver runAgent)
   active = null; persist();
   log(`tarea ${t.task_id} ${t.estado}`);
@@ -112,7 +113,7 @@ function start(t: Task, tarea: string, url: string, password: string) {
   const deadline = startedAt + DEADLINE_MS;
   // watchdog independiente: cancela a 270 s; si el worker no cierra, fuerza terminal a 280 s
   const soft = setTimeout(() => ctl.abort(), DEADLINE_MS);
-  const hard = setTimeout(() => finish(t, { estado: "fallida", resumen: "Tiempo máximo alcanzado; la tarea se detuvo sin confirmar el resultado." }), HARD_CLOSE_MS);
+  const hard = setTimeout(() => finish(t, { estado: "fallida", resumen: "Tiempo máximo alcanzado; la tarea se detuvo sin confirmar el resultado.", causa: "tiempo_agotado" }), HARD_CLOSE_MS);
 
   // Crear traza si LIVE_VIEW=1
   if (process.env.LIVE_VIEW === "1") {
@@ -133,7 +134,7 @@ function start(t: Task, tarea: string, url: string, password: string) {
       if (process.env.LIVE_VIEW === "1") {
         removeTrace(t.task_id);
       }
-      finish(t, { estado: "fallida", resumen: redact("Error interno: " + (e?.message ?? e), [password]) });
+      finish(t, { estado: "fallida", resumen: redact("Error interno: " + (e?.message ?? e), [password]), causa: "error_interno" });
     })
     .finally(() => { clearTimeout(soft); clearTimeout(hard); });
 }
@@ -154,7 +155,7 @@ const server = http.createServer(async (req, res) => {
       const t: Task = { task_id: randomUUID(), estado: "en_curso", resumen: "", created: Date.now() };
       tasks.set(t.task_id, t);
       if (active) { // una tarea activa por instancia: falla explícita sin actuar
-        t.estado = "fallida"; t.resumen = "Agente ocupado con otra tarea; no se realizó ninguna acción."; persist();
+        t.estado = "fallida"; t.causa = "agente_ocupado"; t.resumen = "Agente ocupado con otra tarea; no se realizó ninguna acción."; persist();
         return send(res, 200, { task_id: t.task_id });
       }
       active = t.task_id; persist();
@@ -166,7 +167,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && m) {
       const t = tasks.get(m[1]);
       if (!t) return send(res, 404, { error: "tarea no encontrada" });
-      return send(res, 200, { estado: t.estado, resumen: t.resumen });
+      return send(res, 200, { estado: t.estado, resumen: t.resumen, ...(t.estado === "fallida" && t.causa ? { causa: t.causa } : {}) });
     }
 
     // Rutas de visor en vivo (solo con LIVE_VIEW=1)

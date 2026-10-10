@@ -3,7 +3,8 @@
 import { RfbClient, toPng, sleep, type Frame } from "./rfb.ts";
 import { makeSession, type Msg } from "./models.ts";
 
-export interface AgentResult { estado: "terminada" | "fallida"; resumen: string }
+/** causa: código estable de por qué terminó "fallida" (vacío si terminó bien o si fue una decisión del modelo). */
+export interface AgentResult { estado: "terminada" | "fallida"; resumen: string; causa?: string }
 export interface AgentOpts {
   tarea: string; url: string; password: string; signal: AbortSignal; deadlineMs: number; // deadline monotónico (performance.now)
   log: (m: string) => void;
@@ -12,6 +13,8 @@ export interface AgentOpts {
 }
 
 const MAX_STEPS = Number(process.env.AGENT_MAX_STEPS ?? 40);
+/** Reintentos de CONEXIÓN (no de la tarea: repetir una tarea podría duplicar registros). Parametrizable; 0 los desactiva. */
+const MAX_RECONNECTS = Math.max(0, Math.min(5, Number(process.env.MAX_RECONNECTS ?? 2)));
 
 const SYSTEM_FULL = `Eres un operador de escritorio. Controlas una app desconocida SOLO mirando capturas de 1280x800 píxeles y enviando una o varias acciones por turno.
 REGLAS DURAS:
@@ -159,7 +162,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
   const secrets = [o.password];
   const left = () => o.deadlineMs - performance.now();
   let rfb: RfbClient | null = null;
-  const fail = (m: string): AgentResult => ({ estado: "fallida", resumen: redact(m, secrets) });
+  const fail = (m: string, causa = "error_agente"): AgentResult => ({ estado: "fallida", resumen: redact(m, secrets), causa });
   const session = makeSession(o.log);
   const sysMsg: Msg = { role: "system", content: SYSTEM };
   try {
@@ -169,7 +172,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
     let prev: Frame = await rfb.settle(300, 2500);
     let noProgress = 0, lastKey = "", doneAttempts = 0, reconnects = 0;
     for (let step = 1; step <= MAX_STEPS; step++) {
-      if (o.signal.aborted || left() < 15000) return fail("Tiempo agotado antes de completar la tarea; no se declaró éxito.");
+      if (o.signal.aborted || left() < 15000) return fail("Tiempo agotado antes de completar la tarea; no se declaró éxito.", "tiempo_agotado");
       const png = toPng(prev).toString("base64");
       const hist = noProgress >= 2 ? `\nAVISO: las últimas ${noProgress} acciones no cambiaron la pantalla; cambia de estrategia.` : "";
       const costWarn = session.tracker.totalCostUsd > 0 ? ` [coste: $${session.tracker.totalCostUsd.toFixed(3)}]` : "";
@@ -195,7 +198,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
         messages.pop();
         ++noProgress;
         if (noProgress >= 2 && process.env.ESCALATE_ON_FAIL !== "0" && session.escalate("actor")) noProgress = 0; // JSON truncado/ilegible: un modelo más fuerte retoma
-        if (noProgress >= 4) return fail("El modelo no produjo acciones válidas; se detiene sin cambios confirmados.");
+        if (noProgress >= 4) return fail("El modelo no produjo acciones válidas; se detiene sin cambios confirmados.", "modelo_sin_acciones_validas");
         await sleep(500);
         continue;
       }
@@ -213,7 +216,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
         }).find(Boolean);
         if (batchBad) { messages.push({ role: "user", content: `Acción rechazada: ${batchBad}. Corrige.` }); noProgress++; continue; }
       }
-      if (o.signal.aborted || left() < 8000) return fail("Tiempo agotado; acción descartada.");
+      if (o.signal.aborted || left() < 8000) return fail("Tiempo agotado; acción descartada.", "tiempo_agotado");
       try { o.onStep?.({ step, png, observacion: parsed?.observacion, plan: parsed?.plan, accion: act, costUsd: session.tracker.totalCostUsd }); } catch { /* el visor nunca afecta al agente */ }
       o.log(`paso ${step}: ${acts.length > 1 ? `[batch ${acts.length}] ` : ""}${act.tipo}${act.x !== undefined ? ` (${act.x},${act.y})` : ""}${act.tecla ? ` ${act.tecla}` : ""}`);
 
@@ -250,7 +253,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
 
       if (act.tipo === "done" || act.tipo === "fail") {
         const estado = act.tipo === "done" ? "terminada" : "fallida";
-        return { estado, resumen: redact(normalizeResumen(String(act.resumen)).slice(-1500), secrets) };
+        return { estado, resumen: redact(normalizeResumen(String(act.resumen)).slice(-1500), secrets), ...(estado === "fallida" ? { causa: "decision_del_agente" } : {}) };
       }
 
       // ── Ejecutar acciones RFB (batch o unitaria) ─────────────────────────────
@@ -316,15 +319,15 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
       cur = batchEarlyFrame ?? await rfb.settle(fsp.minMs, fsp.maxMs);
       } catch (e: any) {
         // Caída del socket a mitad de tarea: reconectar (máx. 2), observar y dejar que el modelo verifique antes de repetir un guardado incierto.
-        if (!/cerrad|closed|websocket|socket/i.test(String(e?.message)) || reconnects >= 2 || left() < 20000) throw e;
+        if (!/cerrad|closed|websocket|socket|timeout esperando framebuffer/i.test(String(e?.message)) || reconnects >= MAX_RECONNECTS || left() < 20000) throw e;
         reconnects++;
-        o.log(`conexión caída (${e?.message}); reconectando (${reconnects}/2)`);
+        o.log(`conexión caída (${e?.message}); reconectando (${reconnects}/${MAX_RECONNECTS})`);
         try {
           await rfb.disconnect(500).catch(() => {});
           rfb = await RfbClient.connect(o.url, o.password, 15000, 1);
           prev = await rfb.settle(300, 2500);
         } catch (e2: any) {
-          return fail("Se perdió la conexión con el escritorio y no se pudo reconectar: " + (e2?.message ?? e2));
+          return fail("Se perdió la conexión con el escritorio y no se pudo reconectar: " + (e2?.message ?? e2), "conexion_perdida");
         }
         messages.push({ role: "user", content: "La conexión con el escritorio se cayó y se restableció. Tu última acción pudo no haberse aplicado: observa la captura actual y verifica el estado real antes de repetir cualquier guardado." });
         noProgress = 0;
@@ -332,13 +335,13 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
       }
       const k = JSON.stringify([act.tipo, act.x, act.y, act.texto, act.tecla]);
       if (sameFrame(prev, cur)) { noProgress++; } else noProgress = 0;
-      if (k === lastKey && noProgress >= 3) return fail("Acción repetida sin efecto visible; se detiene para no duplicar cambios.");
+      if (k === lastKey && noProgress >= 3) return fail("Acción repetida sin efecto visible; se detiene para no duplicar cambios.", "accion_repetida_sin_efecto");
       lastKey = k;
       prev = cur;
     }
-    return fail("Se alcanzó el máximo de pasos sin completar la tarea.");
+    return fail("Se alcanzó el máximo de pasos sin completar la tarea.", "max_pasos");
   } catch (e: any) {
-    return fail("Error del agente: " + (e?.message ?? e));
+    { const m = String(e?.message ?? e); return fail("Error del agente: " + m, /cerrad|closed|websocket|socket|framebuffer/i.test(m) ? "conexion_perdida" : "error_agente"); }
   } finally {
     if (rfb) await rfb.disconnect(2000).catch(() => {});
   }
