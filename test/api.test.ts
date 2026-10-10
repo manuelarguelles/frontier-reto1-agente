@@ -2,7 +2,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 
-const PORT = 18099, H = { Authorization: "Bearer t", "Content-Type": "application/json" };
+const PORT = 18098, H = { Authorization: "Bearer t", "Content-Type": "application/json" };
 const p = spawn("node", ["src/server.ts"], { env: { ...process.env, TEAM_TOKEN: "t", PORT: String(PORT), DATA_DIR: "/tmp/ci-data-" + process.pid }, stdio: "ignore" });
 after(() => p.kill());
 await new Promise((r) => setTimeout(r, 1200));

@@ -18,11 +18,12 @@ test("redact oculta la contraseña del escritorio en el resumen", () => {
   assert.equal(redact("sin secreto", [""]), "sin secreto");
 });
 
-test("keysymFor: ASCII, Latin-1 y Unicode directo", () => {
+test("keysymFor: ASCII, Latin-1 y Unicode directo (BMP)", () => {
   assert.equal(keysymFor("a"), 0x61);
   assert.equal(keysymFor("é"), 0xe9);
   assert.equal(keysymFor("ñ"), 0xf1);
-  assert.equal(keysymFor("€"), 0x01000000 + 0x20ac);
+  // Unicode BMP (<= U+FFFF) se devuelve directamente
+  assert.equal(keysymFor("€"), 0x20ac);
   assert.equal(keysymFor("\n"), 0xff0d);
 });
 

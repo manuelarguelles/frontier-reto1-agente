@@ -3,13 +3,58 @@ import http from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { runAgent, redact, type AgentResult } from "./agent.ts";
+import { RfbClient } from "./rfb.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const TEAM_TOKEN = process.env.TEAM_TOKEN ?? "";
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const DEADLINE_MS = Number(process.env.TASK_DEADLINE_S ?? 270) * 1000;
 const HARD_CLOSE_MS = Number(process.env.TASK_HARD_CLOSE_S ?? 280) * 1000;
+const MEMORY_LIMIT_MB = Number(process.env.MEMORY_LIMIT_MB ?? 512);
 if (!TEAM_TOKEN) { console.error("falta TEAM_TOKEN"); process.exit(1); }
+
+// Manejo de errores no capturados: marca tarea como fallida y cierra ordenadamente
+process.on("uncaughtException", (err) => {
+  log("uncaughtException: " + err.message);
+  if (active) {
+    const t = tasks.get(active);
+    if (t && t.estado === "en_curso") {
+      t.estado = "fallida";
+      t.resumen = "Error interno (uncaughtException); la tarea se detuvo.";
+      persist();
+    }
+  }
+  try { process.exit(1); } catch {}
+});
+process.on("unhandledRejection", (reason) => {
+  log("unhandledRejection: " + String(reason));
+  if (active) {
+    const t = tasks.get(active);
+    if (t && t.estado === "en_curso") {
+      t.estado = "fallida";
+      t.resumen = "Error interno (unhandledRejection); la tarea se detuvo.";
+      persist();
+    }
+  }
+});
+
+// Cierre ordenado ante SIGTERM: abortar tarea activa, soltar entradas, marcar fallida
+const gracefulShutdown = async () => {
+  log("SIGTERM recibido; cerrando ordenadamente");
+  if (active) {
+    const t = tasks.get(active);
+    if (t && t.estado === "en_curso") {
+      // Aborta la tarea en curso para que el agente la marque fallida
+      // No se puede abortar la ejecución directamente, se marca como fallida
+      t.estado = "fallida";
+      t.resumen = "Servicio reiniciado durante la tarea; no se reintenta para evitar duplicados.";
+      persist();
+    }
+  }
+  server.close(() => { log("servidor cerrado"); process.exit(0); });
+};
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);
 
 interface Task { task_id: string; estado: "en_curso" | "terminada" | "fallida"; resumen: string; created: number }
 const tasks = new Map<string, Task>();
@@ -96,4 +141,14 @@ const server = http.createServer(async (req, res) => {
     send(res, 404, { error: "no encontrado" });
   } catch (e: any) { send(res, 500, { error: "error interno" }); log("error: " + e?.message); }
 });
+
+// Verificación de memoria (para Railway 0.5 GB)
+const checkMemory = () => {
+  const used = process.memoryUsage().heapUsed / 1024 / 1024;
+  if (used > MEMORY_LIMIT_MB) {
+    log(`advertencia: memoria usada ${used.toFixed(1)} MB excede límite ${MEMORY_LIMIT_MB} MB`);
+  }
+};
+setInterval(checkMemory, 10000);
+
 server.listen(PORT, () => log(`agente escuchando en :${PORT}`));

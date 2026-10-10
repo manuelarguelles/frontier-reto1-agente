@@ -25,7 +25,8 @@ export function keysymFor(ch: string): number {
   if (cp === 9) return 0xff09;
   if (cp >= 0x20 && cp <= 0x7e) return cp;
   if (cp >= 0xa0 && cp <= 0xff) return cp; // Latin-1: keysym = codepoint
-  return 0x01000000 + cp; // Unicode directo
+  if (cp < 0x10000) return cp; // Unicode BMP directo (<= 0xFFFF)
+  return 0x01000000 + cp; // Unicode plano multilenguaje (> 0xFFFF)
 }
 
 export class RfbClient {
@@ -45,14 +46,27 @@ export class RfbClient {
   private downKeys = new Set<number>();
   private pump: Promise<void> | null = null;
 
-  static async connect(url: string, password: string, timeoutMs = 15000): Promise<RfbClient> {
-    const c = new RfbClient();
-    await c.open(url, timeoutMs);
-    await c.handshake(password);
-    c.pump = c.loop().catch((e) => { c.closeReason = String(e?.message ?? e); c.closed = true; c.wake(); });
-    await c.requestUpdate(false);
-    await c.waitFrame(0, timeoutMs);
-    return c;
+  static async connect(url: string, password: string, timeoutMs = 15000, maxRetries = 1): Promise<RfbClient> {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const c = new RfbClient();
+      try {
+        await c.open(url, timeoutMs);
+        await c.handshake(password);
+        c.pump = c.loop().catch((e) => { c.closeReason = String(e?.message ?? e); c.closed = true; c.wake(); });
+        await c.requestUpdate(false);
+        await c.waitFrame(0, timeoutMs);
+        return c;
+      } catch (e: any) {
+        lastError = e;
+        c.closed = true; c.wake();
+        if (attempt < maxRetries) {
+          // pequeña pausa antes de retry
+          await sleep(500);
+        }
+      }
+    }
+    throw lastError || new RfbError("conexión fallida");
   }
 
   private open(url: string, timeoutMs: number): Promise<void> {
@@ -146,8 +160,16 @@ export class RfbClient {
       } else if (t === 2) {
         // bell
       } else if (t === 3) {
+        // DesktopSize: cambio de resolución (RFB 3.8)
         const h = await this.need(7);
-        await this.need(h.readUInt32BE(3));
+        const newW = h.readUInt16BE(3), newH = h.readUInt16BE(5);
+        await this.need(4); // padding
+        this.width = newW; this.height = newH;
+        this.fb = new Uint8Array(this.width * this.height * 4);
+        // solicitar actualización para llenar el nuevo framebuffer
+        await this.requestUpdate(false);
+        this.frameId++;
+        this.wake();
       } else throw new RfbError("mensaje de servidor desconocido " + t);
     }
   }
