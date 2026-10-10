@@ -32,6 +32,7 @@ Variables: `TEAM_TOKEN`, `OPENROUTER_API_KEY`, `AGENT_MODEL` (por defecto `anthr
 ## Estado y evidencia
 
 - E1 (alta de cliente) contra SIGECOM real: `__check` en verde, 115 s, estado correcto.
+- Metodología de evaluación (golden set E1–E5, harness separado) y resultados medidos por modelo: `docs/evaluation/`.
 - Diseño y razones de cada decisión: `docs/design/`; flujos por escenario: `docs/design/scenario-flows.md`; prioridades: `docs/design/implementation-priorities.md`; investigación y repos de referencia revisados (no ejecutados): `docs/research/`.
 - Terceros: `src/third_party/des.js` (DES de noVNC, MPL-2.0) solo para el desafío de autenticación VNC.
 
