@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
       - name: Tests unitarios y de API
-        run: node --test test/
+        run: node --test "test/*.test.ts"
       - name: Build de la imagen Docker
         run: docker build -t reto1 .
       - name: Imagen arranca y responde /health con Bearer
