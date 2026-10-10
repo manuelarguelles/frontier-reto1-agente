@@ -1,0 +1,24 @@
+{
+  "qwen-edit": {
+    "passed": true,
+    "tools": [
+      "read",
+      "edit"
+    ],
+    "cost_usd": 0.00085196
+  },
+  "deepseek-read": {
+    "passed": true,
+    "tools": [
+      "read"
+    ],
+    "cost_usd": 0.00063195
+  },
+  "gemini-vision": {
+    "passed": true,
+    "tools": [],
+    "cost_usd": 0.0003223
+  },
+  "total_cost_usd": 0.00180621,
+  "scope": "Pruebas básicas de herramientas, extracción y visión. No miden desempeño en el reto."
+}

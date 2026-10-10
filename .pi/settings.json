@@ -1,0 +1,10 @@
+{
+  "defaultProvider": "openrouter",
+  "defaultModel": "qwen/qwen3-coder-next",
+  "enabledModels": [
+    "openrouter/qwen/qwen3-coder-next",
+    "openrouter/deepseek/deepseek-v3.2",
+    "openrouter/google/gemini-2.5-flash",
+    "openrouter/anthropic/claude-sonnet-4.6"
+  ]
+}

@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.pi/sessions/
+artifacts/
+node_modules/
+.venv/
+__pycache__/
+*.pyc
