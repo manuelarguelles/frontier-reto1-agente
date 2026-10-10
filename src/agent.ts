@@ -177,6 +177,13 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
         }
       }
 
+      // Escalada: si el actor barato concluye "fallida", un modelo más fuerte retoma la MISMA tarea (estado intacto) y confirma o corrige.
+      if (act.tipo === "fail" && process.env.ESCALATE_ON_FAIL !== "0" && session.escalate("actor")) {
+        messages.push({ role: "user", content: `Un modelo más débil concluyó "fallida" con este resumen: ${String(act.resumen).slice(0, 500)}\nVerifica por tu cuenta con la pantalla actual. Si de verdad es imposible, ambigua o peligrosa, confirma con fail y el resumen con los datos que lo explican. Si no, continúa la tarea.` });
+        noProgress = 0;
+        continue;
+      }
+
       if (act.tipo === "done" || act.tipo === "fail") {
         const estado = act.tipo === "done" ? "terminada" : "fallida";
         return { estado, resumen: redact(String(act.resumen).slice(0, 1500), secrets) };

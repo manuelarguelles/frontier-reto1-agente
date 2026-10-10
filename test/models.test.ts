@@ -170,3 +170,17 @@ test("session.call switches actor model after 2 consecutive failures", async () 
   const lines = getLines();
   assert.ok(lines.some((l) => l.includes("fallback")), "log must mention fallback switch");
 });
+
+test("escalate cambia el modelo del rol una sola vez y registra el cambio", () => {
+  const logs: string[] = [];
+  const prev = process.env.AGENT_MODEL;
+  process.env.AGENT_MODEL = "anthropic/claude-haiku-5.5";
+  try {
+    const s = makeSession((m) => logs.push(m));
+    assert.equal(s.escalate("actor"), "anthropic/claude-sonnet-4.6");
+    assert.equal(s.escalate("actor"), null); // ya escalado
+    assert.ok(logs.some((l) => l.includes("escalado")));
+  } finally {
+    if (prev === undefined) delete process.env.AGENT_MODEL; else process.env.AGENT_MODEL = prev;
+  }
+});

@@ -21,6 +21,8 @@ export interface ModelSession {
     deadlineMs: number,
     opts?: { maxTokens?: number; temperature?: number },
   ): Promise<string>;
+  /** Cambia el modelo de un rol al de escalada (ESCALATE_MODEL, por defecto Sonnet 4.6). Devuelve el modelo nuevo o null si ya estaba/no aplica. */
+  escalate(role: ModelRole): string | null;
 }
 
 // ─── Cost catalog ────────────────────────────────────────────────────────────
@@ -33,12 +35,14 @@ interface ModelDef {
 const CATALOG: Record<string, ModelDef> = {
   "anthropic/claude-sonnet-4.6":     { inputCostPer1k: 0.003,   outputCostPer1k: 0.015,  timeoutMs: 40_000 },
   "anthropic/claude-haiku-4.5":      { inputCostPer1k: 0.001,   outputCostPer1k: 0.005,  timeoutMs: 25_000 },
+  "anthropic/claude-haiku-5.5":      { inputCostPer1k: 0.0001,  outputCostPer1k: 0.0005, timeoutMs: 25_000 },
   "google/gemini-2.5-flash":         { inputCostPer1k: 0.0003,  outputCostPer1k: 0.0025, timeoutMs: 30_000 },
 };
 
 const FALLBACK: Record<string, string> = {
   "anthropic/claude-sonnet-4.6":     "anthropic/claude-haiku-4.5",
   "anthropic/claude-haiku-4.5":      "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-haiku-5.5":      "anthropic/claude-sonnet-4.6",
   "google/gemini-2.5-flash":         "anthropic/claude-haiku-4.5",
 };
 
@@ -137,7 +141,15 @@ export function makeSession(
     throw lastErr;
   }
 
-  return { tracker, call };
+  function escalate(role: ModelRole): string | null {
+    const to = process.env.ESCALATE_MODEL ?? "anthropic/claude-sonnet-4.6";
+    if (getModel(role) === to) return null;
+    currentModel[role] = to;
+    log(`[models] ${role} escalado a ${to}`);
+    return to;
+  }
+
+  return { tracker, call, escalate };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

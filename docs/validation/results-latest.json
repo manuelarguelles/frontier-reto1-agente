@@ -1,45 +1,50 @@
 {
-  "timestamp": "2026-10-10T18:02:49.346Z",
+  "timestamp": "2026-10-10T18:18:38.323Z",
   "agent": "http://localhost:8099",
   "total": 5,
-  "passed": 0,
-  "failed": 5,
-  "avg_time_ms": 126167,
+  "passed": 4,
+  "failed": 1,
+  "avg_time_ms": 83111,
   "avg_steps": 0,
   "results": [
     {
       "prueba": "E1",
       "estado": "terminada",
       "estado_esperado": "terminada",
-      "tiempo_ms": 120241,
+      "passed": true,
+      "tiempo_ms": 140209,
       "steps": 0
     },
     {
       "prueba": "E2",
       "estado": "terminada",
       "estado_esperado": "terminada",
-      "tiempo_ms": 85106,
+      "passed": true,
+      "tiempo_ms": 75121,
       "steps": 0
     },
     {
       "prueba": "E3",
       "estado": "fallida",
       "estado_esperado": "terminada",
-      "tiempo_ms": 225256,
+      "passed": false,
+      "tiempo_ms": 60067,
       "steps": 0
     },
     {
       "prueba": "E4",
       "estado": "terminada",
       "estado_esperado": "terminada",
-      "tiempo_ms": 150170,
+      "passed": true,
+      "tiempo_ms": 80095,
       "steps": 0
     },
     {
       "prueba": "E5",
       "estado": "fallida",
       "estado_esperado": "fallida",
-      "tiempo_ms": 50063,
+      "passed": true,
+      "tiempo_ms": 60065,
       "steps": 0
     }
   ]
