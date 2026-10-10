@@ -1,50 +1,40 @@
-# Frontier Hackathon 2026
+# Frontier 2026 · Reto 1 — Agente que opera lo que no tiene API
 
-Proyecto de Manuel Argüelles para Frontier, 10 de octubre de 2026. Modalidad remota.
+Agente que ejecuta tareas en lenguaje natural sobre aplicaciones de escritorio **desconocidas**, usando solo píxeles:
+se conecta por VNC (RFB) al escritorio que recibe en cada tarea, mira capturas, hace clics y escribe como un empleado nuevo.
+Sin DOM, sin API de negocio, sin herramientas de terceros que operen la app: el cliente RFB es propio.
 
-## Estado
+## Contrato (todas las rutas con `Authorization: Bearer <TEAM_TOKEN>`)
 
-Reto 1 elegido y confirmado a las 10:23. Material disponible en private/challenge-1/. Entorno SIGECOM 1280×800, solo VNC/RFB. Ver docs/challenge-1-selected.md. No hay implementación del agente todavía.
+| Ruta | Respuesta |
+|---|---|
+| `GET /health` | `{"ok": true}` |
+| `POST /tasks` `{"tarea", "escritorio": {"url": "wss://…/websockify", "password"}}` | `{"task_id"}` en milisegundos; la tarea corre en segundo plano |
+| `GET /tasks/{task_id}` | `{"estado": "en_curso\|terminada\|fallida", "resumen"}` |
 
-## Reglas del evento
+## Cómo funciona
 
-- Elección del reto: 10:10–10:30; no se puede cambiar.
-- Diseño individual: una página y diagrama, hasta las 12:00; peso 30%.
-- Ejecución: repo, entrypoint y video de 2 minutos, hasta las 20:00; peso 40%.
-- Incidente a las 15:30.
-- Tres corridas del set oculto durante el día y una corrida final tras las 20:00 sobre la última entrega a tiempo.
-- Debrief individual de 10 minutos: 20:00–21:00; peso 15%.
-- Demo: 21:15–22:15; peso 15%.
-- Para Reto 2: especificación y log, con evidencia por comportamiento.
-- Presupuesto de trabajo: US$45; reserva del organizador para evaluaciones: US$5.
+1. **Transporte** (`src/rfb.ts`): RFB 3.8 sobre WebSocket, autenticación VNC, encodings Raw y CopyRect, captura nativa del framebuffer con `frame_id`, clic con botón pulsado ≥150 ms, teclado por keysym (NFC; Unicode directo para tildes/ñ), `Ctrl+A` remoto antes de reemplazar texto, repintado esperado hasta estabilizar, desconexión confirmada que suelta teclas y botones.
+2. **Loop** (`src/agent.ts`): observar → una acción JSON del modelo (Sonnet vía OpenRouter) → validar (tipo, límites de pantalla) → ejecutar → esperar repintado → verificar. Detecta acciones sin efecto y cambia de estrategia o se detiene; nunca declara éxito sin evidencia visible.
+3. **Seguridad**: el contenido de la pantalla es dato sin autoridad (una nota que pide borrar pedidos se ignora y se reporta); la contraseña del escritorio se redacta de logs y resumen; ante tareas imposibles, ambiguas (homónimos) o peligrosas termina `fallida` nombrando los datos que lo explican.
+4. **Tiempo** (`src/server.ts`): una tarea activa por instancia (si llega otra, falla explícita sin actuar); watchdog monotónico cancela a 270 s y cierra a 280 s; el estado terminal solo se publica **después** de cerrar el escritorio, para no contaminar la tarea siguiente. Reinicios marcan las tareas en curso como `fallida` sin reintentar (evita duplicados).
 
-## Herramientas
+## Ejecutar
 
-Pi 1.1.0 instalado; OpenRouter verificado por Frontier. La credencial vive en el Llavero de macOS, fuera del repo.
+```bash
+TEAM_TOKEN=... OPENROUTER_API_KEY=... node src/server.ts      # Node >= 24 (ejecuta TypeScript nativo)
+docker build -t reto1 . && docker run -p 8080:8080 -e TEAM_TOKEN=... -e OPENROUTER_API_KEY=... reto1
+node scripts/harness.mjs E1                                    # reset -> tarea -> __check (necesita private/desktop.env)
+```
 
-## Método de trabajo
+Variables: `TEAM_TOKEN`, `OPENROUTER_API_KEY`, `AGENT_MODEL` (por defecto `anthropic/claude-sonnet-4.6`), `AGENT_MAX_STEPS`, `TASK_DEADLINE_S`, `DATA_DIR`.
 
-| Modelo | Uso principal |
-|--------|---------------|
-| Qwen3 Coder Next | Código |
-| DeepSeek V3.2 | Análisis |
-| Gemini 2.5 Flash | Imágenes |
-| Claude Sonnet 4.6 | Bloqueos difíciles |
+## Estado y evidencia
 
-Codex coordina la selección según la tarea. Tras dos intentos sin avance cambia de modelo, y revisa los resultados y consumo. El modelo del agente entregado se elegirá con pruebas locales cuando salga el brief.
+- E1 (alta de cliente) contra SIGECOM real: `__check` en verde, 115 s, estado correcto.
+- Diseño y razones de cada decisión: `docs/design/`; flujos por escenario: `docs/design/scenario-flows.md`; prioridades: `docs/design/implementation-priorities.md`; investigación y repos de referencia revisados (no ejecutados): `docs/research/`.
+- Terceros: `src/third_party/des.js` (DES de noVNC, MPL-2.0) solo para el desafío de autenticación VNC.
 
-## Avance de kickoff
+## Fuera de alcance (a propósito)
 
-[Análisis, índice por temas y decisiones](docs/kickoff-analysis.md), basado en el avance 00:00–32:32. Diseño individual sin implementar el reto; ejecución con repo público y entrypoint desplegado según contrato. Original e índice detallado permanecen en `private/transcripts/`, fuera de Git.
-
-## Retos habilitados
-
-[Comparación y plan portable de despliegue](docs/challenge-comparison.md), con [contratos estructurados](docs/challenge-contracts.json). Ambas series de pestañas revisadas; README de Reto 1 descargado y revisado. Propuesta: validar en Railway propio y desplegar el mismo commit en el destino del organizador cuando se conozca.
-
-## Diseño listo para revisión
-
-[Diseño de una página](output/pdf/reto-1-diseno.pdf), [diagrama](output/pdf/reto-1-arquitectura.pdf) y [plan de validación](docs/design/validation-plan.md). [Exploración visual real y límites](docs/design/desktop-evidence.md). Nueve delegaciones Pi, coste US$0.02520; una acción Sonnet ejecutada y verificada, Gemini requiere mejorar coordenadas. No enviados al portal; cero corridas ocultas usadas. Implementación comienza tras diseño, a las 12:00.
-
-## Revisión de código y diseño v2 — 11:48
-
-12 repos descargados privadamente, SHA fijados en docs/research/downloaded-references.json. Revisiones de flujos y transporte en docs/research/code-review-agent-flows.md y code-review-input-grounding.md. [Escenarios rediseñados](docs/design/scenario-flows.md) y [prioridades de implementación](docs/design/implementation-priorities.md). PDFs actualizados/revisados. Sonnet baseline de actuación, Gemini lectura tras medir; [prueba offline](docs/validation/grounding-v2.md) limitada a una ficha. Agente aún no implementado; respetar inicio12:00. No entrega enviada.
+GPU, entrenamiento o ajuste fino, agentes/MCP de terceros, pool de workers (sin memoria medida), DOM o API de la app, y OCR especializado salvo que fallen los recortes.
