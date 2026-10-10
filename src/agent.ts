@@ -7,6 +7,8 @@ export interface AgentResult { estado: "terminada" | "fallida"; resumen: string 
 export interface AgentOpts {
   tarea: string; url: string; password: string; signal: AbortSignal; deadlineMs: number; // deadline monotónico (performance.now)
   log: (m: string) => void;
+  /** Opcional: se llama por cada paso con lo que el modelo vio y decidió (para el visor en vivo local; apagado en producción). */
+  onStep?: (ev: { step: number; png: string; observacion?: string; plan?: string; accion: any; costUsd: number }) => void;
 }
 
 const MAX_STEPS = Number(process.env.AGENT_MAX_STEPS ?? 40);
@@ -145,10 +147,11 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
         const m = messages[i];
         if (m.role === "user" && Array.isArray(m.content)) { if (++seen > 2) m.content = m.content.filter((c: any) => c.type === "text"); }
       }
-      let reply: string, act: any;
+      let reply: string, act: any, parsed: any;
       try {
         reply = await session.call("actor", [sysMsg, ...messages], o.signal, o.deadlineMs);
-        act = parseJson(reply).accion;
+        parsed = parseJson(reply);
+        act = parsed.accion;
       } catch (e: any) {
         o.log(`paso ${step}: modelo/parseo falló: ${e?.message}`);
         messages.pop();
@@ -162,6 +165,7 @@ export async function runAgent(o: AgentOpts): Promise<AgentResult> {
       const bad = validateAction(act, rfb.width, rfb.height);
       if (bad) { messages.push({ role: "user", content: `Acción rechazada: ${bad}. Corrige.` }); noProgress++; continue; }
       if (o.signal.aborted || left() < 8000) return fail("Tiempo agotado; acción descartada.");
+      try { o.onStep?.({ step, png, observacion: parsed?.observacion, plan: parsed?.plan, accion: act, costUsd: session.tracker.totalCostUsd }); } catch { /* el visor nunca afecta al agente */ }
       o.log(`paso ${step}: ${act.tipo}${act.x !== undefined ? ` (${act.x},${act.y})` : ""}${act.tecla ? ` ${act.tecla}` : ""}`);
 
       // ── Verificación previa a done (máx. 2 rechazos para evitar bucle) ──────

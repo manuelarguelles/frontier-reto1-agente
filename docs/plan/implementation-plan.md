@@ -25,3 +25,17 @@ Roles: **actor** (decide la acción; Sonnet 4.6 baseline), **localizador** (solo
 
 ## Después (yo, hilo principal)
 Validar entrypoint en portal, video de 2 min, congelar despliegues antes de 20:00, corridas ocultas solo con hipótesis concreta.
+
+## WP4 — Visor en vivo local (`src/trace.ts`, `src/server.ts` solo rutas nuevas, `public/live.html`, tests)
+Objetivo: que Manuel vea trabajar al agente SIN abrir otro cliente VNC (un segundo visor puede expulsar al agente del escritorio) y sin afectar producción.
+1. `src/trace.ts`: almacén en memoria por tarea (últimos N pasos: paso, miniatura PNG base64 ≤ 80 KB, observación, plan, acción, coste acumulado, tiempos). Se alimenta con el gancho `onStep` de `runAgent` (ya existe; NO edites `src/agent.ts`).
+2. `src/server.ts`: si `LIVE_VIEW=1`: `GET /live` (HTML), `GET /live/tasks` (lista), `GET /tasks/{id}/trace` (JSON), `GET /live/stream` (SSE). Todas con Bearer o `?token=` solo cuando `LIVE_VIEW=1`. Con `LIVE_VIEW` distinto de 1 las rutas responden 404 y no se guarda nada (producción nunca guarda capturas).
+3. `public/live.html`: una sola página sin dependencias: última captura grande, línea de tiempo de pasos (acción, observación, coste), estado de la tarea y comparación de modelo/coste. Debe leerse bien en pantalla de portátil.
+4. Tests (sin red ni escritorio) de trace.ts y de que las rutas no existen sin `LIVE_VIEW=1`.
+
+## WP5 — Velocidad (`src/agent.ts`, `src/rfb.ts`, tests)
+Medido: modelo 55–65 % del paso, espera de repintado ~25 %. Objetivos sin perder precisión (validar con `scripts/suite.mjs`, 5/5 como mínimo):
+1. Varias acciones por turno del modelo (`acciones: [...]`, máx. 4, ejecutadas en orden con verificación de que la pantalla no cambió de página entre una y otra cuando haga falta); compatibilidad con la acción única.
+2. Espera adaptativa: tras `type`/`replace_text`/`key` sin cambio de página, no esperar el mínimo de 1 s; tras clic, mantener 1 s + estabilidad.
+3. Reducir tokens por paso (prompt del sistema más corto, 1 imagen + texto del historial) y medir con `scripts/bench.ts`.
+Reglas: no tocar `src/server.ts`; E1–E5 deben seguir pasando; reportar pasos y tiempo por tarea antes/después.
